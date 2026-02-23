@@ -41,6 +41,12 @@
                                                 <a class="btn btn-danger" href="{{ route('currencies.delete',currency.id) }}"><span
                                                         class="fa fa-fw fa-trash"></span></a>
                                                 {% endif %}
+                                                {# Make this currency the primary (default) — only show if not already primary #}
+                                                {% if currency.id != primaryCurrency.id and currency.userGroupEnabled %}
+                                                    <a class="btn btn-success make_default" data-code="{{ currency.code }}" href="#">
+                                                        <span class="fa fa-fw fa-star"></span>
+                                                        {{ 'make_default_currency'|_ }}</a>
+                                                {% endif %}
                                                 {# Disable the currency. #}
                                                 {% if currency.userGroupEnabled %}
                                                     <a class="btn btn-default disable-currency" data-code="{{ currency.code }}"

@@ -10,30 +10,30 @@
                 <div class="col-xl-4 col-lg-6 col-md-12 col-sm-12 col-xs-12">
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">Info</h3>
+                            <h3 class="card-title">{{ __('firefly.expenses_by_category') }}</h3>
                         </div>
                         <div class="card-body">
-                            some chart
+                            <p class="text-muted mb-0">{{ __('firefly.no_data_for_chart') }}</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-xl-4 col-lg-6 col-md-12 col-sm-12 col-xs-12">
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">Info</h3>
+                            <h3 class="card-title">{{ __('firefly.expenses_by_budget') }}</h3>
                         </div>
                         <div class="card-body">
-                            Same
+                            <p class="text-muted mb-0">{{ __('firefly.no_data_for_chart') }}</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-xl-4 col-lg-6 col-md-12 col-sm-12 col-xs-12">
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">Info</h3>
+                            <h3 class="card-title">{{ __('firefly.income_by_category') }}</h3>
                         </div>
                         <div class="card-body">
-                            Same
+                            <p class="text-muted mb-0">{{ __('firefly.no_data_for_chart') }}</p>
                         </div>
                     </div>
                 </div>
@@ -93,6 +93,13 @@
                                 </tr>
                                 </thead>
                                 <tbody>
+                                <template x-if="transactions.length === 0 && !notifications.wait.show">
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-4">
+                                            {{ __('firefly.no_transactions_period') }}
+                                        </td>
+                                    </tr>
+                                </template>
                                 <template x-for="transaction in transactions">
                                     <tr>
                                         <td>
@@ -174,17 +181,16 @@
                 <div class="col-xl-2 col-lg-12 col-md-12 col-sm-12 col-xs-12">
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">Sidebar</h3>
+                            <h3 class="card-title">{{ __('firefly.options') }}</h3>
                         </div>
                         <div class="card-body">
-                            I like sidebar
+                            <p class="text-muted small mb-0">{{ __('firefly.no_data_for_chart') }}</p>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="row mb-3">
                 <div class="col">
-                    Nav
                 </div>
             </div>
         </div>

@@ -27,7 +27,7 @@
                 <div class="col-xl-4 col-lg-6 col-md-12 col-sm-12 col-xs-12">
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">Not yet implemented.</h3>
+                            <h3 class="card-title">{{ __('firefly.balance_difference') }}</h3>
                         </div>
                         <div class="card-body">
                             Not yet implemented.

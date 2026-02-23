@@ -757,6 +757,14 @@ Route::group(
     }
 );
 
+// v2 i18n: serve translation JSON so the frontend can load firefly.wait_loading_data etc.
+Route::group(
+    ['middleware' => 'user-full-auth', 'namespace' => 'FireflyIII\Http\Controllers'],
+    static function (): void {
+        Route::get('v2/i18n/{locale}.json', ['uses' => 'I18nController@v2', 'as' => 'v2.i18n'])->where('locale', '[a-zA-Z_\-]+');
+    }
+);
+
 // JSON Controller(s).
 Route::group(
     ['middleware' => 'user-full-auth', 'namespace' => 'FireflyIII\Http\Controllers', 'prefix' => 'json', 'as' => 'json.'],

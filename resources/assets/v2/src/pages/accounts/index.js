@@ -289,6 +289,12 @@ let index = function () {
                 this.convertToPrimary = res[5];
 
                 this.loadAccounts();
+            }).catch((err) => {
+                console.error('Failed to load preferences:', err);
+                this.notifications.wait.show = false;
+                this.pageOptions.isLoading = false;
+                this.notifications.error.show = true;
+                this.notifications.error.text = err?.response?.data?.message || i18next.t('firefly.wait_loading_data') + ' (request failed)';
             });
         },
         saveActiveFilter(e) {
@@ -453,6 +459,12 @@ let index = function () {
                 this.accounts = sortable;
                 this.notifications.wait.show = false;
                 this.pageOptions.isLoading = false;
+            }).catch((err) => {
+                console.error('Failed to load accounts:', err);
+                this.notifications.wait.show = false;
+                this.pageOptions.isLoading = false;
+                this.notifications.error.show = true;
+                this.notifications.error.text = err?.response?.data?.message || 'Failed to load accounts.';
             });
         },
     }
