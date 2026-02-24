@@ -34,6 +34,7 @@ use FireflyIII\Support\Debug\Timer;
 use FireflyIII\Support\Facades\Preferences;
 use FireflyIII\Support\Facades\Steam;
 use FireflyIII\Support\Http\Controllers\PeriodOverview;
+use FireflyIII\Support\Http\Controllers\TransactionFiltering;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -51,6 +52,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 class ShowController extends Controller
 {
     use PeriodOverview;
+    use TransactionFiltering;
 
     private AccountRepositoryInterface $repository;
 
@@ -146,25 +148,34 @@ class ShowController extends Controller
         }
         Log::debug('Collect transactions');
         $timer->start('collection');
+        $filters          = $this->getTransactionFilters($request);
 
-        /** @var GroupCollectorInterface $collector */
-        $collector        = app(GroupCollectorInterface::class);
-        $collector
-            ->setAccounts(new Collection()->push($account))
-            ->setLimit($pageSize)
-            ->setPage($page)
-            ->withAttachmentInformation()
-            ->withAPIInformation()
-            ->setRange($start, $end)
-        ;
-        // this search will not include transaction groups where this asset account (or liability)
-        // is just part of ONE of the journals. To force this:
-        $collector->setExpandGroupSearch(true);
-        $groups           = $collector->getPaginatedGroups();
+        if ($this->hasTransactionFilters($request)) {
+            $baseOperators = [
+                'account_id:' . $account->id,
+                'date_after:' . $start->format('Y-m-d'),
+                'date_before:' . $end->format('Y-m-d'),
+            ];
+            $groups        = $this->getFilteredTransactions($request, $page, $pageSize, $baseOperators);
+        } else {
+            /** @var GroupCollectorInterface $collector */
+            $collector = app(GroupCollectorInterface::class);
+            $collector
+                ->setAccounts(new Collection()->push($account))
+                ->setLimit($pageSize)
+                ->setPage($page)
+                ->withAttachmentInformation()
+                ->withAPIInformation()
+                ->setRange($start, $end)
+            ;
+            $collector->setExpandGroupSearch(true);
+            $groups    = $collector->getPaginatedGroups();
+        }
 
         Log::debug('End collect transactions');
         $timer->stop('collection');
         $groups->setPath(route('accounts.show', [$account->id, $start->format('Y-m-d'), $end->format('Y-m-d')]));
+        $groups->appends(array_filter($filters));
         $showAll          = false;
         $now              = now();
         if ($now->gt($end) || $now->lt($start)) {
@@ -191,6 +202,7 @@ class ShowController extends Controller
             'chartUrl'     => $chartUrl,
             'location'     => $location,
             'balances'     => $balances,
+            'filters'      => $filters,
         ]);
     }
 
@@ -224,16 +236,20 @@ class ShowController extends Controller
 
         $end->endOfDay();
 
-        /** @var GroupCollectorInterface $collector */
-        $collector    = app(GroupCollectorInterface::class);
-        $collector->setAccounts(new Collection()->push($account))->setLimit($pageSize)->setPage($page)->withAccountInformation()->withCategoryInformation();
+        $filters      = $this->getTransactionFilters($request);
 
-        // this search will not include transaction groups where this asset account (or liability)
-        // is just part of ONE of the journals. To force this:
-        $collector->setExpandGroupSearch(true);
-
-        $groups       = $collector->getPaginatedGroups();
+        if ($this->hasTransactionFilters($request)) {
+            $baseOperators = ['account_id:' . $account->id];
+            $groups        = $this->getFilteredTransactions($request, $page, $pageSize, $baseOperators);
+        } else {
+            /** @var GroupCollectorInterface $collector */
+            $collector = app(GroupCollectorInterface::class);
+            $collector->setAccounts(new Collection()->push($account))->setLimit($pageSize)->setPage($page)->withAccountInformation()->withCategoryInformation();
+            $collector->setExpandGroupSearch(true);
+            $groups    = $collector->getPaginatedGroups();
+        }
         $groups->setPath(route('accounts.show.all', [$account->id]));
+        $groups->appends(array_filter($filters));
         $chartUrl     = route('chart.account.period', [$account->id, $start->format('Y-m-d'), $end->format('Y-m-d')]);
         $showAll      = true;
         // correct
@@ -266,6 +282,7 @@ class ShowController extends Controller
             'start'        => $start,
             'end'          => $end,
             'balances'     => $balances,
+            'filters'      => $filters,
         ]);
     }
 }

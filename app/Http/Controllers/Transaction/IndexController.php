@@ -32,6 +32,7 @@ use FireflyIII\Models\TransactionJournal;
 use FireflyIII\Repositories\Journal\JournalRepositoryInterface;
 use FireflyIII\Support\Facades\Preferences;
 use FireflyIII\Support\Http\Controllers\PeriodOverview;
+use FireflyIII\Support\Http\Controllers\TransactionFiltering;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -44,6 +45,7 @@ use Psr\Container\NotFoundExceptionInterface;
 class IndexController extends Controller
 {
     use PeriodOverview;
+    use TransactionFiltering;
 
     private JournalRepositoryInterface $repository;
 
@@ -111,22 +113,33 @@ class IndexController extends Controller
         }
 
         $periods       = $this->getTransactionPeriodOverview($objectType, $startPeriod, $endPeriod);
+        $filters       = $this->getTransactionFilters($request);
+        $searchType    = $this->mapObjectTypeToSearchType($objectType);
 
-        /** @var GroupCollectorInterface $collector */
-        $collector     = app(GroupCollectorInterface::class);
-
-        $collector
-            ->setRange($start, $end)
-            ->setTypes($types)
-            ->setLimit($pageSize)
-            ->setPage($page)
-            ->withBudgetInformation()
-            ->withCategoryInformation()
-            ->withAccountInformation()
-            ->withAttachmentInformation()
-        ;
-        $groups        = $collector->getPaginatedGroups();
+        if ($this->hasTransactionFilters($request)) {
+            $baseOperators = [
+                'date_after:' . $start->format('Y-m-d'),
+                'date_before:' . $end->format('Y-m-d'),
+                'transaction_type:' . $searchType,
+            ];
+            $groups        = $this->getFilteredTransactions($request, $page, $pageSize, $baseOperators);
+        } else {
+            /** @var GroupCollectorInterface $collector */
+            $collector = app(GroupCollectorInterface::class);
+            $collector
+                ->setRange($start, $end)
+                ->setTypes($types)
+                ->setLimit($pageSize)
+                ->setPage($page)
+                ->withBudgetInformation()
+                ->withCategoryInformation()
+                ->withAccountInformation()
+                ->withAttachmentInformation()
+            ;
+            $groups    = $collector->getPaginatedGroups();
+        }
         $groups->setPath($path);
+        $groups->appends(array_filter($filters));
 
         return view('transactions.index', [
             'subTitle'     => $subTitle,
@@ -136,7 +149,22 @@ class IndexController extends Controller
             'periods'      => $periods,
             'start'        => $start,
             'end'          => $end,
+            'filters'      => $filters,
         ]);
+    }
+
+    /**
+     * Maps route objectType to the value the search operator expects.
+     */
+    private function mapObjectTypeToSearchType(string $objectType): string
+    {
+        $map = [
+            'expenses' => 'withdrawal',
+            'revenue'  => 'deposit',
+            'transfers' => 'transfer',
+        ];
+
+        return $map[$objectType] ?? $objectType;
     }
 
     /**
@@ -160,21 +188,33 @@ class IndexController extends Controller
         $end          = $last instanceof TransactionJournal ? $last->date : today(config('app.timezone'));
         $subTitle     = (string) trans('firefly.all_'.$objectType);
 
-        /** @var GroupCollectorInterface $collector */
-        $collector    = app(GroupCollectorInterface::class);
+        $filters      = $this->getTransactionFilters($request);
+        $searchType   = $this->mapObjectTypeToSearchType($objectType);
 
-        $collector
-            ->setRange($start, $end)
-            ->setTypes($types)
-            ->setLimit($pageSize)
-            ->setPage($page)
-            ->withAccountInformation()
-            ->withBudgetInformation()
-            ->withCategoryInformation()
-            ->withAttachmentInformation()
-        ;
-        $groups       = $collector->getPaginatedGroups();
+        if ($this->hasTransactionFilters($request)) {
+            $baseOperators = [
+                'date_after:' . $start->format('Y-m-d'),
+                'date_before:' . $end->format('Y-m-d'),
+                'transaction_type:' . $searchType,
+            ];
+            $groups        = $this->getFilteredTransactions($request, $page, $pageSize, $baseOperators);
+        } else {
+            /** @var GroupCollectorInterface $collector */
+            $collector = app(GroupCollectorInterface::class);
+            $collector
+                ->setRange($start, $end)
+                ->setTypes($types)
+                ->setLimit($pageSize)
+                ->setPage($page)
+                ->withAccountInformation()
+                ->withBudgetInformation()
+                ->withCategoryInformation()
+                ->withAttachmentInformation()
+            ;
+            $groups    = $collector->getPaginatedGroups();
+        }
         $groups->setPath($path);
+        $groups->appends(array_filter($filters));
 
         return view('transactions.index', [
             'subTitle'     => $subTitle,
@@ -183,6 +223,7 @@ class IndexController extends Controller
             'groups'       => $groups,
             'start'        => $start,
             'end'          => $end,
+            'filters'      => $filters,
         ]);
     }
 }

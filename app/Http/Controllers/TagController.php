@@ -33,6 +33,7 @@ use FireflyIII\Models\Tag;
 use FireflyIII\Repositories\Tag\TagRepositoryInterface;
 use FireflyIII\Support\Facades\Preferences;
 use FireflyIII\Support\Http\Controllers\PeriodOverview;
+use FireflyIII\Support\Http\Controllers\TransactionFiltering;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,6 +48,7 @@ use Psr\Container\NotFoundExceptionInterface;
 class TagController extends Controller
 {
     use PeriodOverview;
+    use TransactionFiltering;
 
     protected TagRepositoryInterface $repository;
     private AttachmentHelperInterface $attachmentsHelper;
@@ -243,21 +245,33 @@ class TagController extends Controller
         $periods      = $this->getTagPeriodOverview($tag, $startPeriod, $endPeriod);
         $path         = route('tags.show', [$tag->id, $start->format('Y-m-d'), $end->format('Y-m-d')]);
 
-        /** @var GroupCollectorInterface $collector */
-        $collector    = app(GroupCollectorInterface::class);
+        $filters      = $this->getTransactionFilters($request);
 
-        $collector
-            ->setRange($start, $end)
-            ->setLimit($pageSize)
-            ->setPage($page)
-            ->withAccountInformation()
-            ->setTag($tag)
-            ->withBudgetInformation()
-            ->withCategoryInformation()
-            ->withAttachmentInformation()
-        ;
-        $groups       = $collector->getPaginatedGroups();
+        if ($this->hasTransactionFilters($request)) {
+            $tagName       = str_contains($tag->tag, ' ') ? '"' . $tag->tag . '"' : $tag->tag;
+            $baseOperators = [
+                'tag_is:' . $tagName,
+                'date_after:' . $start->format('Y-m-d'),
+                'date_before:' . $end->format('Y-m-d'),
+            ];
+            $groups        = $this->getFilteredTransactions($request, $page, $pageSize, $baseOperators);
+        } else {
+            /** @var GroupCollectorInterface $collector */
+            $collector = app(GroupCollectorInterface::class);
+            $collector
+                ->setRange($start, $end)
+                ->setLimit($pageSize)
+                ->setPage($page)
+                ->withAccountInformation()
+                ->setTag($tag)
+                ->withBudgetInformation()
+                ->withCategoryInformation()
+                ->withAttachmentInformation()
+            ;
+            $groups    = $collector->getPaginatedGroups();
+        }
         $groups->setPath($path);
+        $groups->appends(array_filter($filters));
         $sums         = $this->repository->sumsOfTag($tag, $start, $end);
 
         return view('tags.show', [
@@ -271,6 +285,7 @@ class TagController extends Controller
             'start'        => $start,
             'end'          => $end,
             'location'     => $location,
+            'filters'      => $filters,
         ]);
     }
 
@@ -295,21 +310,29 @@ class TagController extends Controller
         $attachments  = $this->repository->getAttachments($tag);
         $path         = route('tags.show', [$tag->id, 'all']);
         $location     = $this->repository->getLocation($tag);
+        $filters      = $this->getTransactionFilters($request);
 
-        /** @var GroupCollectorInterface $collector */
-        $collector    = app(GroupCollectorInterface::class);
-        $collector
-            ->setRange($start, $end)
-            ->setLimit($pageSize)
-            ->setPage($page)
-            ->withAccountInformation()
-            ->setTag($tag)
-            ->withBudgetInformation()
-            ->withCategoryInformation()
-            ->withAttachmentInformation()
-        ;
-        $groups       = $collector->getPaginatedGroups();
+        if ($this->hasTransactionFilters($request)) {
+            $tagName       = str_contains($tag->tag, ' ') ? '"' . $tag->tag . '"' : $tag->tag;
+            $baseOperators = ['tag_is:' . $tagName];
+            $groups        = $this->getFilteredTransactions($request, $page, $pageSize, $baseOperators);
+        } else {
+            /** @var GroupCollectorInterface $collector */
+            $collector = app(GroupCollectorInterface::class);
+            $collector
+                ->setRange($start, $end)
+                ->setLimit($pageSize)
+                ->setPage($page)
+                ->withAccountInformation()
+                ->setTag($tag)
+                ->withBudgetInformation()
+                ->withCategoryInformation()
+                ->withAttachmentInformation()
+            ;
+            $groups    = $collector->getPaginatedGroups();
+        }
         $groups->setPath($path);
+        $groups->appends(array_filter($filters));
         $sums         = $this->repository->sumsOfTag($tag, $start, $end);
 
         return view('tags.show', [
@@ -323,6 +346,7 @@ class TagController extends Controller
             'start'        => $start,
             'end'          => $end,
             'location'     => $location,
+            'filters'      => $filters,
         ]);
     }
 

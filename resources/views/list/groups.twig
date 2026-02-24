@@ -1,3 +1,19 @@
+<div class="transaction-filter-bar" style="padding:6px 8px;border-bottom:1px solid #ddd;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+    <button type="button" class="btn btn-default btn-sm" id="toggle-filters">
+        <span class="fa fa-filter"></span> {{ 'Filters'|_ }}
+    </button>
+    <div style="flex:1;min-width:200px;">
+        <input type="text" class="form-control input-sm" id="filter_query"
+               placeholder="Advanced: description_contains:amazon amount_more:50 ..."
+               value="{{ filters.filter_query|default('') }}">
+    </div>
+    <button type="button" class="btn btn-info btn-sm" id="apply-filters">
+        <span class="fa fa-search"></span> Apply
+    </button>
+    <button type="button" class="btn btn-default btn-sm" id="clear-filters">
+        <span class="fa fa-times"></span> Clear
+    </button>
+</div>
 <table class="table table-condensed table-hover table-responsive">
     <thead>
     <tr>
@@ -57,6 +73,54 @@
         {% endif %}
         <th class="hidden-xs">&nbsp;</th><!-- actions -->
         <th class="hidden-xs">&nbsp;</th><!-- checkbox -->
+    </tr>
+    <tr class="filter-row" style="display:none;background:#f9f9f9;">
+        <td class="hidden-xs">&nbsp;</td>
+        <td>
+            <input type="text" class="form-control input-sm filter-input" id="filter_description"
+                   placeholder="{{ trans('list.description') }}" value="{{ filters.filter_description|default('') }}">
+        </td>
+        <td style="min-width:160px;">
+            <div style="display:flex;gap:2px;">
+                <input type="number" step="0.01" class="form-control input-sm filter-input" id="filter_amount_min"
+                       placeholder="Min" value="{{ filters.filter_amount_min|default('') }}" style="width:50%;">
+                <input type="number" step="0.01" class="form-control input-sm filter-input" id="filter_amount_max"
+                       placeholder="Max" value="{{ filters.filter_amount_max|default('') }}" style="width:50%;">
+            </div>
+        </td>
+        {% if fireflyiiiconfig('use_running_balance', true) %}
+        <td>&nbsp;</td>
+        {% endif %}
+        <td style="min-width:180px;">
+            <div style="display:flex;gap:2px;">
+                <input type="date" class="form-control input-sm filter-input" id="filter_date_from"
+                       value="{{ filters.filter_date_from|default('') }}" style="width:50%;">
+                <input type="date" class="form-control input-sm filter-input" id="filter_date_to"
+                       value="{{ filters.filter_date_to|default('') }}" style="width:50%;">
+            </div>
+        </td>
+        <td>
+            <input type="text" class="form-control input-sm filter-input" id="filter_source"
+                   placeholder="{{ trans('list.source_account') }}" value="{{ filters.filter_source|default('') }}">
+        </td>
+        <td>
+            <input type="text" class="form-control input-sm filter-input" id="filter_destination"
+                   placeholder="{{ trans('list.destination_account') }}" value="{{ filters.filter_destination|default('') }}">
+        </td>
+        {% if showCategory %}
+            <td class="hidden-xs">
+                <input type="text" class="form-control input-sm filter-input" id="filter_category"
+                       placeholder="{{ trans('list.category') }}" value="{{ filters.filter_category|default('') }}">
+            </td>
+        {% endif %}
+        {% if showBudget %}
+            <td class="hidden-xs">
+                <input type="text" class="form-control input-sm filter-input" id="filter_budget"
+                       placeholder="{{ trans('list.budget') }}" value="{{ filters.filter_budget|default('') }}">
+            </td>
+        {% endif %}
+        <td class="hidden-xs">&nbsp;</td>
+        <td class="hidden-xs">&nbsp;</td>
     </tr>
     </thead>
     <tbody>
@@ -473,4 +537,77 @@
 <script type="text/javascript" nonce="{{ JS_NONCE }}">
     var cloneGroupUrl = '{{ route('transactions.clone') }}';
     var cloneAndEditUrl = '{{ route('transactions.clone') }}?redirect=edit';
+
+    var filterParamNames = [
+        'filter_description', 'filter_amount_min', 'filter_amount_max',
+        'filter_date_from', 'filter_date_to', 'filter_source',
+        'filter_destination', 'filter_category', 'filter_budget', 'filter_query'
+    ];
+
+    function ffApplyFilters() {
+        var url = new URL(window.location.href);
+        url.searchParams.delete('page');
+        for (var i = 0; i < filterParamNames.length; i++) {
+            var el = document.getElementById(filterParamNames[i]);
+            var val = el ? el.value.trim() : '';
+            if (val !== '') {
+                url.searchParams.set(filterParamNames[i], val);
+            } else {
+                url.searchParams.delete(filterParamNames[i]);
+            }
+        }
+        window.location.href = url.toString();
+    }
+
+    function ffClearFilters() {
+        var url = new URL(window.location.href);
+        for (var i = 0; i < filterParamNames.length; i++) {
+            url.searchParams.delete(filterParamNames[i]);
+        }
+        url.searchParams.delete('page');
+        window.location.href = url.toString();
+    }
+
+    (function () {
+        var filterRows = document.querySelectorAll('.filter-row');
+        var filtersVisible = localStorage.getItem('ff_filters_visible') === 'true';
+        var hasActiveFilters = false;
+
+        for (var i = 0; i < filterParamNames.length; i++) {
+            var el = document.getElementById(filterParamNames[i]);
+            if (el && el.value && el.value.trim() !== '') {
+                hasActiveFilters = true;
+                break;
+            }
+        }
+
+        if (hasActiveFilters || filtersVisible) {
+            for (var j = 0; j < filterRows.length; j++) {
+                filterRows[j].style.display = '';
+            }
+            localStorage.setItem('ff_filters_visible', 'true');
+        }
+
+        document.getElementById('toggle-filters').addEventListener('click', function () {
+            var rows = document.querySelectorAll('.filter-row');
+            var visible = rows.length > 0 && rows[0].style.display !== 'none';
+            for (var k = 0; k < rows.length; k++) {
+                rows[k].style.display = visible ? 'none' : '';
+            }
+            localStorage.setItem('ff_filters_visible', visible ? 'false' : 'true');
+        });
+
+        document.getElementById('apply-filters').addEventListener('click', ffApplyFilters);
+        document.getElementById('clear-filters').addEventListener('click', ffClearFilters);
+
+        var inputs = document.querySelectorAll('.filter-input, #filter_query');
+        for (var m = 0; m < inputs.length; m++) {
+            inputs[m].addEventListener('keypress', function (e) {
+                if (e.which === 13 || e.keyCode === 13) {
+                    e.preventDefault();
+                    ffApplyFilters();
+                }
+            });
+        }
+    })();
 </script>
