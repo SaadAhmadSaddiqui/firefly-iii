@@ -512,6 +512,68 @@ On the account show page (e.g. **Accounts → Emirates NBD**), three pie charts 
 | Export data | `php artisan firefly-iii:export-data --export_directory=./exports` |
 | Refresh balances | `php artisan firefly-iii:refresh-running-balance` |
 
+### Custom Import Commands
+
+These are custom Artisan commands for importing bank data into Firefly III.
+
+**Emirates NBD / Emirates Islamic (JSON format)**
+
+```bash
+# Import Emirates NBD debit transactions (account #1)
+php artisan firefly:import-transactions new-transactions.json --source-account-id=1
+
+# Import Emirates Islamic credit card transactions (account #49)
+php artisan firefly:import-transactions emirates-islamic-transactions.json --source-account-id=49
+
+# Dry run (preview without creating)
+php artisan firefly:import-transactions <file> --source-account-id=<id> --dry-run
+```
+
+**Mashreq Cashback Card (CSV format)**
+
+```bash
+# Import Mashreq credit card transactions (account #50)
+php artisan firefly:import-mashreq mashreq-transactions.csv
+
+# Dry run
+php artisan firefly:import-mashreq mashreq-transactions.csv --dry-run
+
+# With a different account ID
+php artisan firefly:import-mashreq mashreq-transactions.csv --source-account-id=<id>
+```
+
+**FAB Cashback Card (CSV format)**
+
+```bash
+# Import FAB credit card transactions (account #51)
+php artisan firefly:import-fab fab-transactions.csv
+
+# Dry run
+php artisan firefly:import-fab fab-transactions.csv --dry-run
+```
+
+**Other tools**
+
+```bash
+# Import beneficiaries as expense accounts
+php artisan firefly:import-beneficiaries beneficiaries.json --source-account-id=1
+
+# List accounts using a specific currency (useful for disabling EUR)
+php artisan firefly:list-accounts-using-currency EUR
+
+# Analyze recurring transactions from a JSON export
+php artisan firefly:analyze-recurring more-transactions.json
+```
+
+**Account IDs**
+
+| Account | ID | Type |
+|---------|---:|------|
+| Emirates NBD (Debit) | 1 | Asset |
+| Emirates Islamic RTA Credit Card | 49 | Asset (Credit Card) |
+| Mashreq Cashback Card | 50 | Asset (Credit Card) |
+| FAB Cashback Card | 51 | Asset (Credit Card) |
+
 ---
 
 ## Annex: Optional env vars and feature completion

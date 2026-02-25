@@ -185,7 +185,18 @@
         ],
         "coverage": [
             "@php vendor/bin/phpunit -c phpunit.xml"
-        ]
+        ],
+        "import:nbd": "php artisan firefly:import-transactions --source-account-id=1",
+        "import:nbd:dry": "php artisan firefly:import-transactions --source-account-id=1 --dry-run",
+        "import:ei": "php artisan firefly:import-transactions --source-account-id=49",
+        "import:ei:dry": "php artisan firefly:import-transactions --source-account-id=49 --dry-run",
+        "import:mashreq": "php artisan firefly:import-mashreq",
+        "import:mashreq:dry": "php artisan firefly:import-mashreq --dry-run",
+        "import:fab": "php artisan firefly:import-fab",
+        "import:fab:dry": "php artisan firefly:import-fab --dry-run",
+        "import:beneficiaries": "php artisan firefly:import-beneficiaries --source-account-id=1",
+        "analyze:recurring": "php artisan firefly:analyze-recurring",
+        "list:currency": "php artisan firefly:list-accounts-using-currency"
     },
     "config": {
         "preferred-install": "dist",
