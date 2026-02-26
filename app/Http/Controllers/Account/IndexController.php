@@ -80,7 +80,7 @@ class IndexController extends Controller
         $collection                    = $this->repository->getInactiveAccountsByType($types);
         $total                         = $collection->count();
         $page                          = 0 === (int) $request->get('page') ? 1 : (int) $request->get('page');
-        $pageSize                      = (int) Preferences::get('listPageSize', 50)->data;
+        $pageSize                      = $this->getPageSize();
         $accounts                      = $collection->slice(($page - 1) * $pageSize, $pageSize);
         unset($collection);
 
@@ -143,7 +143,7 @@ class IndexController extends Controller
         $collection                    = $this->repository->getActiveAccountsByType($types);
         $total                         = $collection->count();
         $page                          = 0 === (int) $request->get('page') ? 1 : (int) $request->get('page');
-        $pageSize                      = (int) Preferences::get('listPageSize', 50)->data;
+        $pageSize                      = $this->getPageSize();
         $accounts                      = $collection->slice(($page - 1) * $pageSize, $pageSize);
         $inactiveCount                 = $this->repository->getInactiveAccountsByType($types)->count();
 

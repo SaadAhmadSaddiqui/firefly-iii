@@ -87,7 +87,7 @@ class ShowController extends Controller
         $subTitleIcon = 'fa-bookmark';
         $page         = (int) $request->get('page');
         $attachments  = $this->repository->getAttachments($category);
-        $pageSize     = (int) Preferences::get('listPageSize', 50)->data;
+        $pageSize     = $this->getPageSize();
         $oldest       = $this->repository->firstUseDate($category) ?? today(config('app.timezone'))->startOfYear();
         $periods      = $this->getCategoryPeriodOverview($category, $oldest, $end);
         $path         = route('categories.show', [$category->id, $start->format('Y-m-d'), $end->format('Y-m-d')]);
@@ -150,7 +150,7 @@ class ShowController extends Controller
         // default values:
         $subTitleIcon = 'fa-bookmark';
         $page         = (int) $request->get('page');
-        $pageSize     = (int) Preferences::get('listPageSize', 50)->data;
+        $pageSize     = $this->getPageSize();
         $start        = null;
         $end          = null;
         $periods      = new Collection();

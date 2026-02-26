@@ -21,6 +21,7 @@
                     {% if currencies|length > 0 %}
                         <div style="padding-left:8px;">
                             {{ currencies.links('pagination.bootstrap-4')|raw }}
+                            {% include 'partials.per-page-toggle' %}
                         </div>
                         <table class="table table-hover">
                             <thead>
@@ -89,6 +90,7 @@
                         </table>
                         <div style="padding-left:8px;">
                             {{ currencies.links('pagination.bootstrap-4')|raw }}
+                            {% include 'partials.per-page-toggle' %}
                         </div>
                     {% endif %}
                 </div>

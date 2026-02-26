@@ -81,7 +81,7 @@ class IndexController extends Controller
     public function index(Request $request): Factory|\Illuminate\Contracts\View\View
     {
         $page        = 0 === (int) $request->get('page') ? 1 : (int) $request->get('page');
-        $pageSize    = (int) Preferences::get('listPageSize', 50)->data;
+        $pageSize    = $this->getPageSize();
         $collection  = $this->repository->get();
         $today       = today(config('app.timezone'));
         $year        = today(config('app.timezone'));

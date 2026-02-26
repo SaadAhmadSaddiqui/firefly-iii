@@ -85,7 +85,7 @@ class IndexController extends Controller
         $subTitleIcon  = config('firefly.transactionIconsByType.'.$objectType);
         $types         = config('firefly.transactionTypesByType.'.$objectType);
         $page          = (int) $request->get('page');
-        $pageSize      = (int) Preferences::get('listPageSize', 50)->data;
+        $pageSize      = $this->getPageSize();
 
         if (!$start instanceof Carbon) {
             $start = session('start');
@@ -180,7 +180,7 @@ class IndexController extends Controller
         $subTitleIcon = config('firefly.transactionIconsByType.'.$objectType);
         $types        = config('firefly.transactionTypesByType.'.$objectType);
         $page         = (int) $request->get('page');
-        $pageSize     = (int) Preferences::get('listPageSize', 50)->data;
+        $pageSize     = $this->getPageSize();
         $path         = route('transactions.index.all', [$objectType]);
         $first        = $this->repository->firstNull();
         $start        = $first instanceof TransactionJournal ? $first->date : new Carbon();

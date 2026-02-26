@@ -1,5 +1,6 @@
 <div style="padding-left:8px;">
     {{ accounts.links('pagination.bootstrap-4')|raw }}
+    {% include 'partials.per-page-toggle' %}
 </div>
 <table class="table table-responsive table-hover" id="sortable-table">
     <thead>
@@ -147,4 +148,5 @@
 </table>
 <div style="padding-left:8px;">
     {{ accounts.links('pagination.bootstrap-4')|raw }}
+    {% include 'partials.per-page-toggle' %}
 </div>

@@ -1,11 +1,15 @@
-<div class="transaction-filter-bar" style="padding:6px 8px;border-bottom:1px solid #ddd;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+<div class="transaction-filter-bar" style="padding:6px 8px;border-bottom:1px solid rgba(128,128,128,0.25);display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
     <button type="button" class="btn btn-default btn-sm" id="toggle-filters">
         <span class="fa fa-filter"></span> {{ 'Filters'|_ }}
     </button>
-    <div style="flex:1;min-width:200px;">
+    <div style="flex:1;min-width:200px;position:relative;">
         <input type="text" class="form-control input-sm" id="filter_query"
                placeholder="Advanced: description_contains:amazon amount_more:50 ..."
-               value="{{ filters.filter_query|default('') }}">
+               value="{{ filters.filter_query|default('') }}"
+               style="padding-right:28px;">
+        <a href="#" data-toggle="modal" data-target="#filterHelpModal"
+           style="position:absolute;right:6px;top:50%;transform:translateY(-50%);opacity:0.5;font-size:14px;line-height:1;"
+           title="Filter reference"><span class="fa fa-question-circle"></span></a>
     </div>
     <button type="button" class="btn btn-info btn-sm" id="apply-filters">
         <span class="fa fa-search"></span> Apply
@@ -22,6 +26,7 @@
                 {{ groups.links('pagination.bootstrap-4')|raw }}
                 {% if groups.total() > 0 %}
                     <span class="text-muted small" style="margin-left:10px;">Showing {{ groups.firstItem() }}–{{ groups.lastItem() }} of {{ groups.total() }}</span>
+                    {% include 'partials.per-page-toggle' %}
                 {% endif %}
             </td>
         {% else %}
@@ -29,6 +34,7 @@
                 {{ groups.links('pagination.bootstrap-4')|raw }}
                 {% if groups.total() > 0 %}
                     <span class="text-muted small" style="margin-left:10px;">Showing {{ groups.firstItem() }}–{{ groups.lastItem() }} of {{ groups.total() }}</span>
+                    {% include 'partials.per-page-toggle' %}
                 {% endif %}
             </td>
         {% endif %}
@@ -74,7 +80,7 @@
         <th class="hidden-xs">&nbsp;</th><!-- actions -->
         <th class="hidden-xs">&nbsp;</th><!-- checkbox -->
     </tr>
-    <tr class="filter-row" style="display:none;background:#f9f9f9;">
+    <tr class="filter-row" style="display:none;background:rgba(128,128,128,0.08);">
         <td class="hidden-xs">&nbsp;</td>
         <td>
             <input type="text" class="form-control input-sm filter-input" id="filter_description"
@@ -494,6 +500,44 @@
     {% endfor %}
     </tbody>
     <tfoot>
+    {% set pageSums = {} %}
+    {% for group in groups %}
+        {% for transaction in group.transactions %}
+            {% set displayAmount = transaction.amount %}
+            {% if transaction.transaction_type_type == 'Deposit' or transaction.transaction_type_type == 'Transfer' %}
+                {% set displayAmount = transaction.amount * -1 %}
+            {% elseif transaction.transaction_type_type == 'Opening balance' or transaction.transaction_type_type == 'Reconciliation' %}
+                {% if transaction.source_account_type == 'Initial balance account' or transaction.source_account_type == 'Reconciliation account' %}
+                    {% set displayAmount = transaction.amount * -1 %}
+                {% endif %}
+            {% elseif transaction.transaction_type_type == 'Liability credit' %}
+                {% if transaction.source_account_type != 'Liability credit' %}
+                    {% set displayAmount = transaction.amount * -1 %}
+                {% endif %}
+            {% endif %}
+            {% set sumKey = transaction.currency_symbol ~ '||' ~ transaction.currency_decimal_places %}
+            {% set pageSums = pageSums|merge({(sumKey): (pageSums[sumKey]|default(0)) + displayAmount}) %}
+        {% endfor %}
+    {% endfor %}
+    {% if pageSums|length > 0 %}
+    <tr style="border-top:2px solid rgba(128,128,128,0.4);">
+        <td class="hidden-xs">&nbsp;</td>
+        <td><strong>Page Total</strong></td>
+        <td style="text-align:right">
+            <strong>
+            {% for sumKey, total in pageSums %}
+                {% set parts = sumKey|split('||') %}
+                {{ formatAmountBySymbol(total, parts[0], parts[1]) }}{% if not loop.last %}<br>{% endif %}
+            {% endfor %}
+            </strong>
+        </td>
+        {% if fireflyiiiconfig('use_running_balance', true) %}
+        <td>&nbsp;</td>
+        {% endif %}
+        <td colspan="{{ (showCategory|default(false) or showBudget|default(false)) ? 5 : 4 }}">&nbsp;</td>
+        <td class="hidden-xs">&nbsp;</td>
+    </tr>
+    {% endif %}
     <tr>
         <td colspan="8">
             <div class="pull-right">
@@ -521,6 +565,7 @@
                 {{ groups.links('pagination.bootstrap-4')|raw }}
                 {% if groups.total() > 0 %}
                     <span class="text-muted small" style="margin-left:10px;">Showing {{ groups.firstItem() }}–{{ groups.lastItem() }} of {{ groups.total() }}</span>
+                    {% include 'partials.per-page-toggle' %}
                 {% endif %}
             </td>
         {% else %}
@@ -528,12 +573,157 @@
                 {{ groups.links('pagination.bootstrap-4')|raw }}
                 {% if groups.total() > 0 %}
                     <span class="text-muted small" style="margin-left:10px;">Showing {{ groups.firstItem() }}–{{ groups.lastItem() }} of {{ groups.total() }}</span>
+                    {% include 'partials.per-page-toggle' %}
                 {% endif %}
             </td>
         {% endif %}
     </tr>
     </tfoot>
 </table>
+
+<div class="modal fade" id="filterHelpModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                <h4 class="modal-title"><span class="fa fa-question-circle"></span> Advanced Filter Reference</h4>
+            </div>
+            <div class="modal-body" style="max-height:70vh;overflow-y:auto;">
+                <p class="text-muted">
+                    Type operators in the search box as <code>operator:value</code>.
+                    Combine multiple with spaces. Negate with <code>-operator:value</code>.
+                    Quote values with spaces: <code>description_contains:"online purchase"</code>.
+                </p>
+
+                <h4 style="margin-top:0;"><span class="fa fa-font fa-fw"></span> Description &amp; Notes</h4>
+                <table class="table table-condensed table-striped" style="margin-bottom:20px;">
+                    <thead><tr><th style="width:40%;">Operator</th><th>What it does</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>description_contains:text</code></td><td>Description contains text</td></tr>
+                        <tr><td><code>description_is:text</code></td><td>Description exactly equals</td></tr>
+                        <tr><td><code>description_starts:text</code></td><td>Description starts with</td></tr>
+                        <tr><td><code>description_ends:text</code></td><td>Description ends with</td></tr>
+                        <tr><td><code>notes_contains:text</code></td><td>Notes contain text</td></tr>
+                        <tr><td><code>notes_is:text</code></td><td>Notes exactly equal</td></tr>
+                    </tbody>
+                </table>
+
+                <h4><span class="fa fa-calculator fa-fw"></span> Amounts</h4>
+                <table class="table table-condensed table-striped" style="margin-bottom:20px;">
+                    <thead><tr><th style="width:40%;">Operator</th><th>What it does</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>amount_more:100</code></td><td>Amount greater than (alias: <code>more</code>)</td></tr>
+                        <tr><td><code>amount_less:500</code></td><td>Amount less than (alias: <code>less</code>)</td></tr>
+                        <tr><td><code>amount_is:49.99</code></td><td>Amount exactly equals (alias: <code>amount</code>)</td></tr>
+                        <tr><td><code>foreign_amount_more:100</code></td><td>Foreign amount greater than</td></tr>
+                        <tr><td><code>foreign_amount_less:500</code></td><td>Foreign amount less than</td></tr>
+                    </tbody>
+                </table>
+
+                <h4><span class="fa fa-calendar fa-fw"></span> Dates</h4>
+                <table class="table table-condensed table-striped" style="margin-bottom:20px;">
+                    <thead><tr><th style="width:40%;">Operator</th><th>What it does</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>date_after:2026-01-01</code></td><td>After date (alias: <code>after</code>)</td></tr>
+                        <tr><td><code>date_before:2026-12-31</code></td><td>Before date (alias: <code>before</code>)</td></tr>
+                        <tr><td><code>date_on:2026-02-25</code></td><td>On exact date (alias: <code>on</code>, <code>date</code>)</td></tr>
+                        <tr><td><code>created_at_after:2026-01-01</code></td><td>Created after date</td></tr>
+                        <tr><td><code>updated_at_after:2026-01-01</code></td><td>Updated after date</td></tr>
+                        <tr><td colspan="2" class="text-muted small">Also: <code>book_date_*</code>, <code>interest_date_*</code>, <code>process_date_*</code>, <code>due_date_*</code>, <code>payment_date_*</code>, <code>invoice_date_*</code></td></tr>
+                    </tbody>
+                </table>
+
+                <h4><span class="fa fa-university fa-fw"></span> Accounts</h4>
+                <table class="table table-condensed table-striped" style="margin-bottom:20px;">
+                    <thead><tr><th style="width:40%;">Operator</th><th>What it does</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>source_account_contains:text</code></td><td>Source account name contains (alias: <code>source</code>, <code>from</code>)</td></tr>
+                        <tr><td><code>source_account_is:text</code></td><td>Source account name equals</td></tr>
+                        <tr><td><code>destination_account_contains:text</code></td><td>Destination account contains (alias: <code>destination</code>, <code>to</code>)</td></tr>
+                        <tr><td><code>destination_account_is:text</code></td><td>Destination account equals</td></tr>
+                        <tr><td><code>account_id:123</code></td><td>Either account has this ID</td></tr>
+                        <tr><td><code>source_account_id:123</code></td><td>Source account ID</td></tr>
+                        <tr><td><code>destination_account_id:123</code></td><td>Destination account ID</td></tr>
+                        <tr><td><code>source_is_cash</code></td><td>Source is cash account</td></tr>
+                        <tr><td><code>destination_is_cash</code></td><td>Destination is cash account</td></tr>
+                        <tr><td colspan="2" class="text-muted small">Also: <code>*_starts</code>, <code>*_ends</code>, <code>*_nr_is</code>, <code>*_nr_contains</code> variants for account names &amp; numbers</td></tr>
+                    </tbody>
+                </table>
+
+                <h4><span class="fa fa-pie-chart fa-fw"></span> Category, Budget &amp; Bill</h4>
+                <table class="table table-condensed table-striped" style="margin-bottom:20px;">
+                    <thead><tr><th style="width:40%;">Operator</th><th>What it does</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>category_contains:text</code></td><td>Category contains (alias: <code>category</code>)</td></tr>
+                        <tr><td><code>category_is:text</code></td><td>Category exactly equals</td></tr>
+                        <tr><td><code>budget_contains:text</code></td><td>Budget contains (alias: <code>budget</code>)</td></tr>
+                        <tr><td><code>budget_is:text</code></td><td>Budget exactly equals</td></tr>
+                        <tr><td><code>bill_contains:text</code></td><td>Bill/subscription contains (alias: <code>bill</code>)</td></tr>
+                        <tr><td><code>bill_is:text</code></td><td>Bill/subscription exactly equals</td></tr>
+                        <tr><td colspan="2" class="text-muted small">Also: <code>*_starts</code>, <code>*_ends</code> variants</td></tr>
+                    </tbody>
+                </table>
+
+                <h4><span class="fa fa-tag fa-fw"></span> Tags</h4>
+                <table class="table table-condensed table-striped" style="margin-bottom:20px;">
+                    <thead><tr><th style="width:40%;">Operator</th><th>What it does</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>tag_is:text</code></td><td>Has this exact tag (alias: <code>tag</code>)</td></tr>
+                        <tr><td><code>tag_is_not:text</code></td><td>Does not have this tag</td></tr>
+                        <tr><td><code>tag_contains:text</code></td><td>Has a tag containing text</td></tr>
+                    </tbody>
+                </table>
+
+                <h4><span class="fa fa-check-square-o fa-fw"></span> Presence Checks</h4>
+                <table class="table table-condensed table-striped" style="margin-bottom:20px;">
+                    <thead><tr><th style="width:40%;">Operator</th><th>What it does</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>has_attachments</code></td><td>Has attachments</td></tr>
+                        <tr><td><code>has_no_attachments</code></td><td>No attachments</td></tr>
+                        <tr><td><code>has_any_category</code></td><td>Has a category</td></tr>
+                        <tr><td><code>has_no_category</code></td><td>No category set</td></tr>
+                        <tr><td><code>has_any_budget</code></td><td>Has a budget</td></tr>
+                        <tr><td><code>has_no_budget</code></td><td>No budget set</td></tr>
+                        <tr><td><code>has_any_bill</code></td><td>Linked to a bill</td></tr>
+                        <tr><td><code>has_no_bill</code></td><td>Not linked to any bill</td></tr>
+                        <tr><td><code>has_any_tag</code></td><td>Has at least one tag</td></tr>
+                        <tr><td><code>has_no_tag</code></td><td>No tags</td></tr>
+                        <tr><td><code>any_notes</code></td><td>Has notes</td></tr>
+                        <tr><td><code>no_notes</code></td><td>No notes</td></tr>
+                        <tr><td><code>reconciled</code></td><td>Is reconciled</td></tr>
+                    </tbody>
+                </table>
+
+                <h4><span class="fa fa-exchange fa-fw"></span> Transaction Type &amp; IDs</h4>
+                <table class="table table-condensed table-striped" style="margin-bottom:20px;">
+                    <thead><tr><th style="width:40%;">Operator</th><th>What it does</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>transaction_type:withdrawal</code></td><td>Filter by type (alias: <code>type</code>)</td></tr>
+                        <tr><td><code>id:123</code></td><td>Transaction group ID</td></tr>
+                        <tr><td><code>journal_id:456</code></td><td>Transaction journal ID</td></tr>
+                        <tr><td><code>currency_is:EUR</code></td><td>Transaction currency</td></tr>
+                        <tr><td><code>foreign_currency_is:USD</code></td><td>Foreign currency</td></tr>
+                    </tbody>
+                </table>
+
+                <h4><span class="fa fa-link fa-fw"></span> External References</h4>
+                <table class="table table-condensed table-striped" style="margin-bottom:0;">
+                    <thead><tr><th style="width:40%;">Operator</th><th>What it does</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>external_id_contains:text</code></td><td>External ID contains</td></tr>
+                        <tr><td><code>internal_reference_contains:text</code></td><td>Internal reference contains</td></tr>
+                        <tr><td><code>external_url_contains:text</code></td><td>External URL contains</td></tr>
+                        <tr><td><code>attachment_name_contains:text</code></td><td>Attachment name contains</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script type="text/javascript" nonce="{{ JS_NONCE }}">
     var cloneGroupUrl = '{{ route('transactions.clone') }}';
     var cloneAndEditUrl = '{{ route('transactions.clone') }}?redirect=edit';

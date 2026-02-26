@@ -99,7 +99,7 @@ class ShowController extends Controller
         $firstDate = $first instanceof TransactionJournal ? $first->date : $start;
         $periods   = $this->getNoModelPeriodOverview('budget', $firstDate, $end);
         $page      = (int) $request->get('page');
-        $pageSize  = (int) Preferences::get('listPageSize', 50)->data;
+        $pageSize  = $this->getPageSize();
 
         /** @var GroupCollectorInterface $collector */
         $collector = app(GroupCollectorInterface::class);
@@ -133,7 +133,7 @@ class ShowController extends Controller
         $start     = $first instanceof TransactionJournal ? $first->date : new Carbon();
         $end       = today(config('app.timezone'));
         $page      = (int) $request->get('page');
-        $pageSize  = (int) Preferences::get('listPageSize', 50)->data;
+        $pageSize  = $this->getPageSize();
 
         /** @var GroupCollectorInterface $collector */
         $collector = app(GroupCollectorInterface::class);
@@ -166,7 +166,7 @@ class ShowController extends Controller
         $allStart    = session('first', today(config('app.timezone'))->startOfYear());
         $allEnd      = today();
         $page        = (int) $request->get('page');
-        $pageSize    = (int) Preferences::get('listPageSize', 50)->data;
+        $pageSize    = $this->getPageSize();
         $limits      = $this->getLimits($budget, $allStart, $allEnd);
         $repetition  = null;
         $attachments = $this->repository->getAttachments($budget);
@@ -228,7 +228,7 @@ class ShowController extends Controller
 
         $currencySymbol = $budgetLimit->transactionCurrency->symbol;
         $page           = (int) $request->get('page');
-        $pageSize       = (int) Preferences::get('listPageSize', 50)->data;
+        $pageSize       = $this->getPageSize();
         $subTitle       = trans('firefly.budget_in_period', [
             'name'     => $budget->name,
             'start'    => $budgetLimit->start_date->isoFormat($this->monthAndDayFormat),

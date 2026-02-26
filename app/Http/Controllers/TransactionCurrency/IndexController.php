@@ -72,7 +72,7 @@ class IndexController extends Controller
         /** @var User $user */
         $user       = auth()->user();
         $page       = 0 === (int) $request->get('page') ? 1 : (int) $request->get('page');
-        $pageSize   = (int) Preferences::get('listPageSize', 50)->data;
+        $pageSize   = $this->getPageSize();
         $collection = $this->repository->getAll();
 
         // order so default and enabled are on top:
