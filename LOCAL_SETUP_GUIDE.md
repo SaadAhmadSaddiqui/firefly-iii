@@ -384,29 +384,36 @@ php artisan firefly-iii:laravel-passport-keys
 
 **Your data is persistent.** PostgreSQL stores everything on disk, and your Firefly III files (including `.env` and `storage/`) stay on your machine. You do **not** need to back up just to “keep data between sessions” — closing Cursor or stopping the server does not erase anything. Backups are for **disaster recovery** (disk failure, accidental deletion, malware) and **portability** (moving to another PC or restoring after a reinstall).
 
-### Database Backup
+### Full Backup (database + attachments)
+
+The built-in backup command creates a single `.tar.gz` archive containing the full PostgreSQL dump and all attachment files:
 
 ```bash
-# Dump the PostgreSQL database
-pg_dump -U firefly -h 127.0.0.1 firefly_iii > firefly_backup_$(date +%Y%m%d).sql
+# Create a full backup (saved to storage/backups/)
+php artisan firefly:backup
+
+# Restore from a backup (replaces ALL data)
+php artisan firefly:restore storage/backups/firefly_backup_2026-02-26_130317.tar.gz
 ```
 
-### Firefly III Export
+You can also do this from the web UI at `/backup` (sidebar: **Backup & Restore**).
 
-You can also export from within the app:
+### CSV Export
+
+For a partial CSV export of transactions and other data:
 
 ```bash
 php artisan firefly-iii:export-data --export_directory=./exports
 ```
 
-### What to Back Up
+### What the Full Backup Includes
 
-| Item | Path |
-|------|------|
-| Database | `pg_dump` output |
-| Environment config | `.env` |
-| Uploaded attachments | `storage/upload/` |
-| OAuth keys | `storage/keys/` |
+| Item | How it's captured |
+|------|-------------------|
+| Database (all tables) | `pg_dump` inside the archive |
+| Uploaded attachments | Copied from `storage/upload/` |
+| OAuth keys | Stored in the database (auto-restored) |
+| Environment config | **NOT included** — copy `.env` separately |
 
 ---
 
@@ -509,7 +516,9 @@ On the account show page (e.g. **Accounts → Emirates NBD**), three pie charts 
 | Clear all caches | `php artisan optimize:clear` |
 | Check database | `php artisan firefly-iii:verify-database-connection` |
 | Upgrade database | `php artisan firefly-iii:upgrade-database` |
-| Export data | `php artisan firefly-iii:export-data --export_directory=./exports` |
+| Full backup | `php artisan firefly:backup` |
+| Restore backup | `php artisan firefly:restore <path-to-archive>` |
+| Export CSV | `php artisan firefly-iii:export-data --export_directory=./exports` |
 | Refresh balances | `php artisan firefly-iii:refresh-running-balance` |
 
 ### Custom Import Commands
