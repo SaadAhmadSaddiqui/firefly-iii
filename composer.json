@@ -196,7 +196,10 @@
         "import:fab:dry": "php artisan firefly:import-fab --dry-run",
         "import:beneficiaries": "php artisan firefly:import-beneficiaries --source-account-id=1",
         "analyze:recurring": "php artisan firefly:analyze-recurring",
-        "list:currency": "php artisan firefly:list-accounts-using-currency"
+        "list:currency": "php artisan firefly:list-accounts-using-currency",
+        "backup": "@php artisan firefly:backup",
+        "backup:list": "ls -lht storage/backups/*.tar.gz 2>/dev/null || echo 'No backups found.'",
+        "restore:latest": "bash -c 'LATEST=$(ls -t storage/backups/*.tar.gz 2>/dev/null | head -1); if [ -z \"$LATEST\" ]; then echo \"No backups found.\"; exit 1; fi; echo \"Restoring: $LATEST\"; echo yes | php artisan firefly:restore storage/backups/$(basename $LATEST)'"
     },
     "config": {
         "preferred-install": "dist",
