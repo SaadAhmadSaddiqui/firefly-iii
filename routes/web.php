@@ -721,6 +721,15 @@ Route::group(
         Route::post('export', ['uses' => 'Export\IndexController@export', 'as' => 'export']);
     }
 );
+// Backup controller.
+Route::group(
+    ['middleware' => 'user-full-auth', 'namespace' => 'FireflyIII\Http\Controllers', 'prefix' => 'backup', 'as' => 'backup.'],
+    static function (): void {
+        Route::get('', ['uses' => 'Backup\IndexController@index', 'as' => 'index']);
+        Route::post('backup', ['uses' => 'Backup\IndexController@backup', 'as' => 'backup']);
+        Route::post('restore', ['uses' => 'Backup\IndexController@restore', 'as' => 'restore']);
+    }
+);
 // Object group controller.
 Route::group(
     ['middleware' => 'user-full-auth', 'namespace' => 'FireflyIII\Http\Controllers', 'prefix' => 'groups', 'as' => 'object-groups.'],

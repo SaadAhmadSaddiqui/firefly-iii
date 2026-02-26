@@ -628,6 +628,15 @@ Breadcrumbs::for(
     }
 );
 
+// BACKUP
+Breadcrumbs::for(
+    'backup.index',
+    static function (Generator $breadcrumbs): void {
+        $breadcrumbs->parent('home');
+        $breadcrumbs->push(trans('firefly.backup_bc'), route('backup.index'));
+    }
+);
+
 // PIGGY BANKS
 Breadcrumbs::for(
     'piggy-banks.index',

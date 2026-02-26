@@ -1,0 +1,95 @@
+{% extends './layout/default' %}
+
+{% block breadcrumbs %}
+    {{ Breadcrumbs.render(Route.getCurrentRoute.getName) }}
+{% endblock %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+            <div class="box box-primary">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><span class="fa fa-download fa-fw"></span> {{ 'backup_download_title'|_ }}</h3>
+                </div>
+                <div class="box-body">
+                    {% if not isSupported %}
+                        <div class="callout callout-danger">
+                            <p>{{ 'backup_only_postgresql'|_ }}</p>
+                        </div>
+                    {% elseif not pgDumpFound %}
+                        <div class="callout callout-danger">
+                            <p>{{ 'backup_pg_dump_not_found'|_ }}</p>
+                        </div>
+                    {% else %}
+                        <p>{{ 'backup_download_expl'|_ }}</p>
+                        <form action="{{ route('backup.backup') }}" method="post">
+                            <input type="hidden" name="_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <span class="fa fa-fw fa-download"></span> {{ 'backup_download_button'|_ }}
+                            </button>
+                        </form>
+                        <p class="text-muted" style="margin-top: 10px;">
+                            <small>{{ 'backup_download_note'|_ }}</small>
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+            <div class="box box-warning">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><span class="fa fa-upload fa-fw"></span> {{ 'backup_restore_title'|_ }}</h3>
+                </div>
+                <div class="box-body">
+                    {% if not isSupported %}
+                        <div class="callout callout-danger">
+                            <p>{{ 'backup_only_postgresql'|_ }}</p>
+                        </div>
+                    {% elseif not psqlFound %}
+                        <div class="callout callout-danger">
+                            <p>{{ 'backup_psql_not_found'|_ }}</p>
+                        </div>
+                    {% else %}
+                        <div class="callout callout-warning">
+                            <p><strong>{{ 'backup_restore_warning_title'|_ }}</strong></p>
+                            <p>{{ 'backup_restore_warning'|_ }}</p>
+                        </div>
+                        <form action="{{ route('backup.restore') }}" method="post" enctype="multipart/form-data"
+                              onsubmit="return confirm('{{ 'backup_restore_confirm'|_ }}');">
+                            <input type="hidden" name="_token" value="{{ csrf_token() }}"/>
+                            <div class="form-group">
+                                <label for="backup_file">{{ 'backup_restore_select_file'|_ }}</label>
+                                <input type="file" name="backup_file" id="backup_file" class="form-control"
+                                       accept=".tar.gz,.gz" required/>
+                            </div>
+                            <button type="submit" class="btn btn-warning btn-lg">
+                                <span class="fa fa-fw fa-upload"></span> {{ 'backup_restore_button'|_ }}
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div class="box box-default">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><span class="fa fa-terminal fa-fw"></span> {{ 'backup_cli_title'|_ }}</h3>
+                </div>
+                <div class="box-body">
+                    <p>{{ 'backup_cli_expl'|_ }}</p>
+                    <pre>php artisan firefly:backup
+php artisan firefly:restore /path/to/backup.tar.gz</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block styles %}
+{% endblock %}
+
+{% block scripts %}
+{% endblock %}

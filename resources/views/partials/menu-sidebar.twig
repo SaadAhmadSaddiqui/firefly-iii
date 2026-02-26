@@ -203,6 +203,13 @@
         </li>
     {% endif %}
 
+    <li class="{{ activeRoutePartial('backup') }}">
+        <a href="{{ route('backup.index') }}">
+            <em class="fa fa-database fa-fw"></em>
+            <span>{{ 'backup_menu'|_ }}</span>
+        </a>
+    </li>
+
     <li class="{{ activeRoutePartial('administrations') }} {{ activeRoutePartial('setting') }} {{ activeRoutePartial('profile') }} {{ activeRoutePartial('preferences') }} {{ activeRoutePartial('currencies') }} {{ activeRoutePartial('exchange-rates') }} treeview"
         id="option-menu">
         <a href="#">

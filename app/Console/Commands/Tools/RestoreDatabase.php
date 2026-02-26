@@ -128,13 +128,12 @@ class RestoreDatabase extends Command
 
         $this->friendlyInfo('Restoring database (this may take a while)...');
 
-        putenv('PGPASSWORD=' . $password);
+        $env = $this->buildEnv(['PGPASSWORD' => $password]);
         $process = proc_open($command, [
             0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],
             2 => ['pipe', 'w'],
-        ], $pipes);
-        putenv('PGPASSWORD');
+        ], $pipes, null, $env);
 
         if (!is_resource($process)) {
             $this->friendlyError('Failed to execute psql.');
@@ -231,13 +230,80 @@ class RestoreDatabase extends Command
         return null;
     }
 
+    /**
+     * @param array<string, string> $extra
+     * @return array<string, string>
+     */
+    private function buildEnv(array $extra): array
+    {
+        $env = getenv();
+        if (!is_array($env)) {
+            $env = [];
+        }
+
+        return array_merge($env, $extra);
+    }
+
     private function findBinary(string $name): ?string
     {
-        $command = str_contains(PHP_OS, 'WIN') ? 'where' : 'which';
-        exec(sprintf('%s %s 2>&1', $command, escapeshellarg($name)), $output, $exitCode);
+        if (str_contains(PHP_OS, 'WIN')) {
+            return $this->findBinaryWindows($name);
+        }
 
+        return $this->findBinaryUnix($name);
+    }
+
+    private function findBinaryUnix(string $name): ?string
+    {
+        foreach (['which', 'command -v'] as $lookup) {
+            $output   = [];
+            $exitCode = 1;
+            exec(sprintf('%s %s 2>/dev/null', $lookup, escapeshellarg($name)), $output, $exitCode);
+            if (0 === $exitCode && !empty($output[0])) {
+                return trim($output[0]);
+            }
+        }
+
+        foreach (['/usr/bin', '/usr/local/bin', '/usr/lib/postgresql/17/bin', '/usr/lib/postgresql/16/bin'] as $dir) {
+            $candidate = $dir . '/' . $name;
+            if (file_exists($candidate) && is_executable($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private function findBinaryWindows(string $name): ?string
+    {
+        $output   = [];
+        $exitCode = 1;
+        exec(sprintf('where %s 2>&1', escapeshellarg($name)), $output, $exitCode);
         if (0 === $exitCode && !empty($output[0])) {
             return trim($output[0]);
+        }
+
+        $exe          = $name . '.exe';
+        $programFiles = [
+            getenv('ProgramFiles') ?: 'C:\\Program Files',
+            getenv('ProgramFiles(x86)') ?: 'C:\\Program Files (x86)',
+        ];
+        foreach ($programFiles as $root) {
+            $pgDir = $root . DIRECTORY_SEPARATOR . 'PostgreSQL';
+            if (!is_dir($pgDir)) {
+                continue;
+            }
+            $versions = glob($pgDir . DIRECTORY_SEPARATOR . '*', GLOB_ONLYDIR);
+            if (false === $versions) {
+                continue;
+            }
+            rsort($versions);
+            foreach ($versions as $ver) {
+                $candidate = $ver . DIRECTORY_SEPARATOR . 'bin' . DIRECTORY_SEPARATOR . $exe;
+                if (file_exists($candidate)) {
+                    return $candidate;
+                }
+            }
         }
 
         return null;
