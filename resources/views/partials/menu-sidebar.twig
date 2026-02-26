@@ -186,6 +186,13 @@
         </a>
     </li>
 
+    <li class="{{ activeRoutePartial('budget-plans') }}">
+        <a href="{{ route('budget-plans.index') }}">
+            <em class="fa fa-book fa-fw"></em>
+            <span>Budget Plans</span>
+        </a>
+    </li>
+
 
     {% if config('firefly.feature_flags.export') %}
         <li class="{{ activeRoutePartial('export') }}" id="report-menu">

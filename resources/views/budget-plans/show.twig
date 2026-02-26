@@ -1,0 +1,45 @@
+{% extends './layout/default' %}
+
+{% block styles %}
+    <style nonce="{{ JS_NONCE }}">
+        .budget-plan-content h1 { font-size: 1.8em; margin-top: 0; border-bottom: 2px solid #3c8dbc; padding-bottom: 8px; }
+        .budget-plan-content h2 { font-size: 1.5em; margin-top: 25px; color: #3c8dbc; border-bottom: 1px solid rgba(128,128,128,0.3); padding-bottom: 6px; }
+        .budget-plan-content h3 { font-size: 1.25em; margin-top: 20px; }
+        .budget-plan-content h4 { font-size: 1.1em; margin-top: 15px; }
+        .budget-plan-content table { width: 100%; margin-bottom: 15px; border-collapse: collapse; }
+        .budget-plan-content table th,
+        .budget-plan-content table td { padding: 8px 12px; border: 1px solid rgba(128,128,128,0.25); text-align: left; }
+        .budget-plan-content table th { background-color: rgba(128,128,128,0.1); font-weight: 600; }
+        .budget-plan-content table tr:nth-child(even) { background-color: rgba(128,128,128,0.05); }
+        .budget-plan-content table tr:hover { background-color: rgba(60,141,188,0.1); }
+        .budget-plan-content hr { border: none; border-top: 1px solid rgba(128,128,128,0.3); margin: 20px 0; }
+        .budget-plan-content blockquote { border-left: 4px solid #3c8dbc; margin: 15px 0; padding: 10px 20px; background: rgba(128,128,128,0.08); }
+        .budget-plan-content code { background: rgba(128,128,128,0.12); padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+        .budget-plan-content pre { background: rgba(128,128,128,0.12); padding: 15px; border-radius: 4px; overflow-x: auto; }
+        .budget-plan-content ul, .budget-plan-content ol { padding-left: 25px; }
+        .budget-plan-content li { margin-bottom: 4px; }
+        .budget-plan-content p, .budget-plan-content li, .budget-plan-content td, .budget-plan-content th { color: inherit; }
+        .budget-plan-content strong { color: inherit; font-weight: 700; }
+        .budget-plan-content em { opacity: 0.85; }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-lg-10 col-lg-offset-1">
+            <div class="box box-primary">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><em class="fa fa-file-text-o fa-fw"></em> {{ subTitle }}</h3>
+                    <div class="box-tools pull-right">
+                        <a href="{{ route('budget-plans.index') }}" class="btn btn-default btn-sm">
+                            <em class="fa fa-arrow-left fa-fw"></em> Back to all plans
+                        </a>
+                    </div>
+                </div>
+                <div class="box-body budget-plan-content">
+                    {{ content|markdown }}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

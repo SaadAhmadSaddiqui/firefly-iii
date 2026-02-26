@@ -1438,6 +1438,15 @@ Route::group(
     }
 );
 
+// Budget Plans Controller.
+Route::group(
+    ['middleware' => 'user-full-auth', 'namespace' => 'FireflyIII\Http\Controllers', 'prefix' => 'budget-plans', 'as' => 'budget-plans.'],
+    static function (): void {
+        Route::get('', ['uses' => 'BudgetPlanController@index', 'as' => 'index']);
+        Route::get('{filename}', ['uses' => 'BudgetPlanController@show', 'as' => 'show'])->where('filename', '[A-Za-z0-9_\-]+\.md');
+    }
+);
+
 // User Group / Administrations Controller.
 Route::group(
     ['middleware' => 'user-full-auth', 'namespace' => 'FireflyIII\Http\Controllers', 'prefix' => 'administrations', 'as' => 'administrations.'],
