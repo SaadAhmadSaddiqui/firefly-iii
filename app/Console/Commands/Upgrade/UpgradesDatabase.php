@@ -78,13 +78,15 @@ class UpgradesDatabase extends Command
             'upgrade:640-upgrade-webhooks',
             'firefly-iii:correct-database',
         ];
-        $args     = [];
+        $args = [];
         if ($this->option('force')) {
             $args = ['--force' => true];
         }
+        // Commands that do not accept --force must be called without args
+        $noForceCommands = ['firefly-iii:correct-database'];
         foreach ($commands as $command) {
             $this->friendlyLine(sprintf('Now executing %s', $command));
-            $this->call($command, $args);
+            $this->call($command, in_array($command, $noForceCommands, true) ? [] : $args);
         }
         // index will set FF3 version.
         FireflyConfig::set('ff3_build_time', (int) config('firefly.build_time'));

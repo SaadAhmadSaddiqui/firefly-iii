@@ -228,8 +228,14 @@ class Handler extends ExceptionHandler
 
             return;
         }
+        // Skip custom error mailing when not in HTTP context (e.g. console/artisan during bootstrap)
+        if (app()->runningInConsole() || !app()->bound('request')) {
+            parent::report($e);
+
+            return;
+        }
         $userData        = ['id'    => 0, 'email' => 'unknown@example.com'];
-        if (auth()->check()) {
+        if (app()->bound('auth') && auth()->check()) {
             $userData['id']    = auth()->user()->id;
             $userData['email'] = auth()->user()->email;
         }

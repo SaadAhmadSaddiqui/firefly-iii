@@ -6,7 +6,7 @@ services:
     restart: always
     volumes:
       - firefly_iii_upload:/var/www/html/storage/upload
-      - firefly_iii_backups:/var/www/html/storage/backups
+      - ./storage/backups:/var/www/html/storage/backups
     env_file: .env
     environment:
       - DB_HOST=db
@@ -54,8 +54,6 @@ services:
 volumes:
    firefly_iii_upload:
    firefly_iii_db:
-   firefly_iii_backups:
-
 networks:
   firefly_iii:
     driver: bridge
