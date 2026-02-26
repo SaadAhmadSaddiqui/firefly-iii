@@ -23,7 +23,10 @@ services:
     hostname: db
     container_name: firefly_iii_db
     restart: always
-    env_file: .db.env
+    environment:
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_DATABASE}
     networks:
       - firefly_iii
     volumes:
