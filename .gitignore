@@ -29,6 +29,9 @@ resources/assets/v2/node_modules
 resources/assets/v2/build
 public/v2/i18n
 
+# ignore backup files
+storage/backups/
+
 # ignore budget files
 MARCH_BUDGET_2026.md
 storage/budget-plans/
