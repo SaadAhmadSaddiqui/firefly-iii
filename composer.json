@@ -84,6 +84,7 @@
         "bacon/bacon-qr-code": "^3.0",
         "diglactic/laravel-breadcrumbs": "^10",
         "gdbots/query-parser": "^3.0",
+        "google/apiclient": "^2.19",
         "guzzlehttp/guzzle": "^7.9",
         "jc5/google2fa-laravel": "^2.0",
         "jc5/recovery": "^2",
@@ -198,6 +199,7 @@
         "analyze:recurring": "php artisan firefly:analyze-recurring",
         "list:currency": "php artisan firefly:list-accounts-using-currency",
         "backup": "@php artisan firefly:backup",
+        "backup:remote": "@php artisan firefly:backup-remote",
         "backup:list": "ls -lht storage/backups/*.tar.gz 2>/dev/null || echo 'No backups found.'",
         "restore:latest": "bash -c 'LATEST=$(ls -t storage/backups/*.tar.gz 2>/dev/null | head -1); if [ -z \"$LATEST\" ]; then echo \"No backups found.\"; exit 1; fi; echo \"Restoring: $LATEST\"; echo yes | php artisan firefly:restore storage/backups/$(basename $LATEST)'"
     },

@@ -81,15 +81,233 @@
                 <div class="box-body">
                     <p>{{ 'backup_cli_expl'|_ }}</p>
                     <pre>php artisan firefly:backup
-php artisan firefly:restore /path/to/backup.tar.gz</pre>
+php artisan firefly:restore /path/to/backup.tar.gz
+php artisan firefly:backup-remote</pre>
                 </div>
             </div>
         </div>
     </div>
+
+    {# Google Drive Setup #}
+    <div class="row">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div class="box {% if gdriveConnected %}box-success{% elseif gdriveConfigured %}box-info{% else %}box-default{% endif %}">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><span class="fa fa-cloud fa-fw"></span> {{ 'gdrive_setup_title'|_ }}</h3>
+                    {% if gdriveConnected %}
+                        <span class="label label-success pull-right">{{ 'gdrive_status_connected'|_ }}</span>
+                    {% endif %}
+                </div>
+                <div class="box-body">
+                    {% if not gdriveConfigured %}
+                        <div class="callout callout-info">
+                            <p><strong>{{ 'gdrive_setup_needed_title'|_ }}</strong></p>
+                            <p>{{ 'gdrive_setup_needed_expl'|_ }}</p>
+                            <ol>
+                                <li>{{ 'gdrive_setup_step1'|_ }}</li>
+                                <li>{{ 'gdrive_setup_step2'|_ }}</li>
+                                <li>{{ 'gdrive_setup_step3'|_ }}</li>
+                                <li>{{ 'gdrive_setup_step4'|_ }}</li>
+                            </ol>
+                        </div>
+                    {% elseif not gdriveConnected %}
+                        <p>{{ 'gdrive_connect_expl'|_ }}</p>
+                        <a href="{{ route('backup.gdrive.connect') }}" class="btn btn-info btn-lg">
+                            <span class="fa fa-fw fa-sign-in"></span> {{ 'gdrive_connect_button'|_ }}
+                        </a>
+                    {% else %}
+                        <p>{{ 'gdrive_connected_expl'|_ }}</p>
+                        <form action="{{ route('backup.gdrive.disconnect') }}" method="post" style="display: inline;">
+                            <input type="hidden" name="_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-default btn-sm"
+                                    onclick="return confirm('{{ 'gdrive_disconnect_confirm'|_ }}');">
+                                <span class="fa fa-fw fa-sign-out"></span> {{ 'gdrive_disconnect_button'|_ }}
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if gdriveConnected %}
+    {# Cloud Backup / Cloud Restore #}
+    <div class="row">
+        <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+            <div class="box box-primary">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><span class="fa fa-cloud-upload fa-fw"></span> {{ 'gdrive_backup_title'|_ }}</h3>
+                </div>
+                <div class="box-body">
+                    {% if not isSupported or not pgDumpFound %}
+                        <div class="callout callout-danger">
+                            <p>{{ 'backup_pg_dump_not_found'|_ }}</p>
+                        </div>
+                    {% else %}
+                        <p>{{ 'gdrive_backup_expl'|_ }}</p>
+                        <form action="{{ route('backup.gdrive.backup') }}" method="post">
+                            <input type="hidden" name="_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <span class="fa fa-fw fa-cloud-upload"></span> {{ 'gdrive_backup_button'|_ }}
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+            <div class="box box-warning">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><span class="fa fa-cloud-download fa-fw"></span> {{ 'gdrive_restore_title'|_ }}</h3>
+                </div>
+                <div class="box-body">
+                    <div id="gdrive-files-loading">
+                        <p><span class="fa fa-spinner fa-spin"></span> {{ 'gdrive_loading_files'|_ }}</p>
+                    </div>
+                    <div id="gdrive-files-list" style="display: none;">
+                        <div id="gdrive-files-empty" style="display: none;">
+                            <p class="text-muted">{{ 'gdrive_no_backups'|_ }}</p>
+                        </div>
+                        <table class="table table-striped table-condensed" id="gdrive-files-table" style="display: none;">
+                            <thead>
+                                <tr>
+                                    <th>{{ 'gdrive_file_name'|_ }}</th>
+                                    <th>{{ 'gdrive_file_date'|_ }}</th>
+                                    <th>{{ 'gdrive_file_size'|_ }}</th>
+                                    <th class="text-right">{{ 'gdrive_file_actions'|_ }}</th>
+                                </tr>
+                            </thead>
+                            <tbody id="gdrive-files-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Budget Plans Sync #}
+    <div class="row">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div class="box box-info">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><span class="fa fa-book fa-fw"></span> {{ 'gdrive_plans_title'|_ }}</h3>
+                </div>
+                <div class="box-body">
+                    <p>{{ 'gdrive_plans_expl'|_ }}</p>
+                    <p class="text-muted">
+                        <small>{{ 'gdrive_plans_local_count'|_({'count': localPlanCount}) }}</small>
+                    </p>
+                    <div class="btn-group">
+                        <form action="{{ route('backup.gdrive.push-plans') }}" method="post" style="display: inline;">
+                            <input type="hidden" name="_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-info">
+                                <span class="fa fa-fw fa-cloud-upload"></span> {{ 'gdrive_push_plans_button'|_ }}
+                            </button>
+                        </form>
+                        <form action="{{ route('backup.gdrive.pull-plans') }}" method="post" style="display: inline; margin-left: 10px;"
+                              onsubmit="return confirm('{{ 'gdrive_pull_plans_confirm'|_ }}');">
+                            <input type="hidden" name="_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-warning">
+                                <span class="fa fa-fw fa-cloud-download"></span> {{ 'gdrive_pull_plans_button'|_ }}
+                            </button>
+                        </form>
+                    </div>
+                    <div class="callout callout-warning" style="margin-top: 15px;">
+                        <p><small>{{ 'gdrive_pull_plans_warning'|_ }}</small></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
 {% endblock %}
 
 {% block styles %}
 {% endblock %}
 
 {% block scripts %}
+{% if gdriveConnected %}
+<script>
+(function() {
+    var csrfToken = '{{ csrf_token() }}';
+    var filesUrl = '{{ route("backup.gdrive.files") }}';
+    var restoreUrl = '{{ route("backup.gdrive.restore") }}';
+    var deleteUrl = '{{ route("backup.gdrive.delete") }}';
+
+    fetch(filesUrl, {credentials: 'same-origin'})
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            document.getElementById('gdrive-files-loading').style.display = 'none';
+            document.getElementById('gdrive-files-list').style.display = 'block';
+
+            var files = data.files || [];
+            if (files.length === 0) {
+                document.getElementById('gdrive-files-empty').style.display = 'block';
+                return;
+            }
+
+            document.getElementById('gdrive-files-table').style.display = 'table';
+            var tbody = document.getElementById('gdrive-files-tbody');
+
+            files.forEach(function(f) {
+                var tr = document.createElement('tr');
+
+                var tdName = document.createElement('td');
+                tdName.textContent = f.name;
+                tr.appendChild(tdName);
+
+                var tdDate = document.createElement('td');
+                var d = new Date(f.createdTime);
+                tdDate.textContent = d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
+                tr.appendChild(tdDate);
+
+                var tdSize = document.createElement('td');
+                var sizeKB = f.size ? (parseInt(f.size) / 1024).toFixed(1) + ' KB' : '—';
+                tdSize.textContent = sizeKB;
+                tr.appendChild(tdSize);
+
+                var tdActions = document.createElement('td');
+                tdActions.className = 'text-right';
+
+                var restoreForm = document.createElement('form');
+                restoreForm.method = 'post';
+                restoreForm.action = restoreUrl;
+                restoreForm.style.display = 'inline';
+                restoreForm.onsubmit = function() {
+                    return confirm('{{ 'gdrive_restore_confirm'|_ }}');
+                };
+                restoreForm.innerHTML = '<input type="hidden" name="_token" value="' + csrfToken + '"/>'
+                    + '<input type="hidden" name="file_id" value="' + f.id + '"/>'
+                    + '<button type="submit" class="btn btn-warning btn-xs">'
+                    + '<span class="fa fa-fw fa-upload"></span> {{ 'gdrive_restore_btn'|_ }}'
+                    + '</button>';
+                tdActions.appendChild(restoreForm);
+
+                var deleteForm = document.createElement('form');
+                deleteForm.method = 'post';
+                deleteForm.action = deleteUrl;
+                deleteForm.style.display = 'inline';
+                deleteForm.style.marginLeft = '5px';
+                deleteForm.onsubmit = function() {
+                    return confirm('{{ 'gdrive_delete_confirm'|_ }}');
+                };
+                deleteForm.innerHTML = '<input type="hidden" name="_token" value="' + csrfToken + '"/>'
+                    + '<input type="hidden" name="file_id" value="' + f.id + '"/>'
+                    + '<button type="submit" class="btn btn-danger btn-xs">'
+                    + '<span class="fa fa-fw fa-trash"></span> {{ 'gdrive_delete_btn'|_ }}'
+                    + '</button>';
+                tdActions.appendChild(deleteForm);
+
+                tr.appendChild(tdActions);
+                tbody.appendChild(tr);
+            });
+        })
+        .catch(function() {
+            document.getElementById('gdrive-files-loading').innerHTML =
+                '<p class="text-danger">{{ 'gdrive_load_error'|_ }}</p>';
+        });
+})();
+</script>
+{% endif %}
 {% endblock %}
