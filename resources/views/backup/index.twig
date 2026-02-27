@@ -228,12 +228,12 @@ php artisan firefly:backup-remote</pre>
 
 {% block scripts %}
 {% if gdriveConnected %}
-<script>
+<script type="text/javascript" nonce="{{ JS_NONCE }}">
 (function() {
     var csrfToken = '{{ csrf_token() }}';
-    var filesUrl = '{{ route("backup.gdrive.files") }}';
-    var restoreUrl = '{{ route("backup.gdrive.restore") }}';
-    var deleteUrl = '{{ route("backup.gdrive.delete") }}';
+    var filesUrl = '/backup/google-drive/files';
+    var restoreUrl = '/backup/google-drive/restore';
+    var deleteUrl = '/backup/google-drive/delete-remote';
 
     fetch(filesUrl, {credentials: 'same-origin'})
         .then(function(r) { return r.json(); })
