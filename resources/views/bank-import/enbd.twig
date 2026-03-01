@@ -1,0 +1,175 @@
+{% extends './layout/default' %}
+
+{% block breadcrumbs %}
+    {{ Breadcrumbs.render(Route.getCurrentRoute.getName) }}
+{% endblock %}
+
+{% block content %}
+    {# ── Schema Documentation ── #}
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="box box-default collapsed-box">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><span class="fa fa-file-code-o fa-fw"></span> Expected JSON Format</h3>
+                    <div class="box-tools pull-right">
+                        <button type="button" class="btn btn-box-tool" data-widget="collapse"><i class="fa fa-plus"></i></button>
+                    </div>
+                </div>
+                <div class="box-body">
+                    <p>Export your transactions from the Emirates NBD or Emirates Islamic mobile app as JSON. The file must have a top-level <code>transactions</code> array. Each transaction object should contain at minimum:</p>
+                    <div class="row">
+                        <div class="col-md-7">
+<pre class="schema-pre">{
+  "transactions": [
+    {
+      "id": "TXN-001-EXAMPLE",
+      "type": "ECOMMERCE",
+      "creditDebitIndicator": "DR",
+      "amount": 125.50,
+      "currencyCode": "AED",
+      "date": 1709251200000,
+      "status": "POSTED",
+      "referenceNumber": "FT26025ABC123",
+      "purpose": {
+        "extendedNarrations": [
+          { "languange": "en", "title": "Amazon.ae", "subTitle": "Online purchase" }
+        ],
+        "narrations": ["125.50,AED"]
+      },
+      "terminal": { "name": "AMAZON.AE", "city": "DUBAI", "country": "AE" }
+    }
+  ]
+}</pre>
+                        </div>
+                        <div class="col-md-5">
+                            <table class="table table-condensed table-bordered">
+                                <thead><tr><th>Field</th><th>Description</th></tr></thead>
+                                <tbody>
+                                    <tr><td><code>type</code></td><td>ECOMMERCE, POS, CARD_PAYMENT, INTRA_BANK, LOCAL, P2P, SALARY, etc.</td></tr>
+                                    <tr><td><code>creditDebitIndicator</code></td><td>DR (money out) or CR (money in)</td></tr>
+                                    <tr><td><code>amount</code></td><td>Transaction amount (always positive)</td></tr>
+                                    <tr><td><code>date</code></td><td>Unix timestamp in milliseconds</td></tr>
+                                    <tr><td><code>status</code></td><td>POSTED, FAILED, CANCELLED, etc. Non-POSTED are skipped.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Input Section ── #}
+    <div class="row">
+        <div class="col-lg-4 col-md-5">
+            <div class="box box-primary">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><span class="fa fa-upload fa-fw"></span> Upload or Configure</h3>
+                </div>
+                <div class="box-body">
+                    <div class="form-group">
+                        <label for="source-account">Target Account</label>
+                        <select id="source-account" class="form-control">
+                            <option value="1">Emirates NBD (Debit Account)</option>
+                            <option value="49">Emirates Islamic (Debit Account)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="import-file">Upload JSON file</label>
+                        <input type="file" id="import-file" class="form-control" accept=".json">
+                    </div>
+                    <p class="text-muted"><small>Or paste the JSON content in the editor on the right.</small></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-8 col-md-7">
+            <div class="box box-info">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><span class="fa fa-code fa-fw"></span> Paste JSON</h3>
+                </div>
+                <div class="box-body" id="editor-wrapper">
+                    <textarea id="code-editor"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Action Buttons ── #}
+    <div class="row">
+        <div class="col-lg-12">
+            <button id="btn-preview" class="btn btn-info btn-lg">
+                <span class="fa fa-eye fa-fw"></span> Preview Transactions
+            </button>
+        </div>
+    </div>
+
+    {# ── Preview / Confirm Section ── #}
+    <div class="row" id="preview-section" style="display: none; margin-top: 15px;">
+        <div class="col-lg-12">
+            <div class="box box-success">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><span class="fa fa-list fa-fw"></span> Preview (<span id="preview-count">0</span> transactions, <span id="skipped-count">0</span> skipped)</h3>
+                </div>
+                <div class="box-body table-responsive no-padding">
+                    <table class="table table-striped table-hover" id="preview-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th class="text-right">Amount</th>
+                                <th>Description</th>
+                                <th>Source</th>
+                                <th>Destination</th>
+                                <th>Tags</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div class="box-footer">
+                    <button id="btn-import" class="btn btn-success btn-lg">
+                        <span class="fa fa-check fa-fw"></span> Confirm Import
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Results Section ── #}
+    <div class="row" id="results-section" style="display: none; margin-top: 15px;">
+        <div class="col-lg-6">
+            <div class="box box-success">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><span class="fa fa-check-circle fa-fw"></span> Import Results</h3>
+                </div>
+                <div class="box-body" id="results-body"></div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block styles %}
+    <link rel="stylesheet" href="/v1/lib/bank-import/import.css">
+{% endblock %}
+
+{% block scripts %}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js" nonce="{{ JS_NONCE }}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/javascript/javascript.min.js" nonce="{{ JS_NONCE }}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/fold/foldcode.min.js" nonce="{{ JS_NONCE }}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/fold/foldgutter.min.js" nonce="{{ JS_NONCE }}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/fold/brace-fold.min.js" nonce="{{ JS_NONCE }}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsonlint/1.6.0/jsonlint.min.js" nonce="{{ JS_NONCE }}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/lint/lint.min.js" nonce="{{ JS_NONCE }}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/lint/json-lint.min.js" nonce="{{ JS_NONCE }}"></script>
+    <script type="text/javascript" nonce="{{ JS_NONCE }}">
+        window.bankImportConfig = {
+            csrfToken: '{{ csrf_token() }}',
+            previewUrl: '{{ route("bank-import.enbd.preview") }}',
+            importUrl: '{{ route("bank-import.enbd.import") }}',
+            editorMode: 'application/json',
+            sourceAccountParamName: 'source_account_id',
+            lint: true
+        };
+    </script>
+    <script src="/v1/lib/bank-import/import.js" nonce="{{ JS_NONCE }}"></script>
+{% endblock %}

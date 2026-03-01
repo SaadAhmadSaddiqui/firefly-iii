@@ -34,7 +34,7 @@ class GoogleDriveController extends Controller
         if (!$this->driveService->isConfigured()) {
             session()->flash('error', (string) trans('firefly.gdrive_not_configured'));
 
-            return redirect(route('backup.index'));
+            return redirect('/backup');
         }
 
         $url = $this->driveService->getAuthorizationUrl();
@@ -51,7 +51,7 @@ class GoogleDriveController extends Controller
             Log::error('Google Drive OAuth callback error: ' . ($error ?? 'no code returned'));
             session()->flash('error', (string) trans('firefly.gdrive_auth_failed'));
 
-            return redirect(route('backup.index'));
+            return redirect('/backup');
         }
 
         try {
@@ -62,7 +62,7 @@ class GoogleDriveController extends Controller
             session()->flash('error', (string) trans('firefly.gdrive_auth_failed'));
         }
 
-        return redirect(route('backup.index'));
+        return redirect('/backup');
     }
 
     public function disconnect(): RedirectResponse
@@ -70,7 +70,7 @@ class GoogleDriveController extends Controller
         $this->driveService->disconnect();
         session()->flash('success', (string) trans('firefly.gdrive_disconnected'));
 
-        return redirect(route('backup.index'));
+        return redirect('/backup');
     }
 
     public function backup(): RedirectResponse
@@ -78,26 +78,26 @@ class GoogleDriveController extends Controller
         if (!$this->driveService->isConnected()) {
             session()->flash('error', (string) trans('firefly.gdrive_not_connected'));
 
-            return redirect(route('backup.index'));
+            return redirect('/backup');
         }
 
         $driver = config('database.default');
         if ('pgsql' !== $driver) {
             session()->flash('error', (string) trans('firefly.backup_only_postgresql'));
 
-            return redirect(route('backup.index'));
+            return redirect('/backup');
         }
 
         $pgDump = $this->findBinary('pg_dump');
         if (null === $pgDump) {
             session()->flash('error', (string) trans('firefly.backup_pg_dump_not_found'));
 
-            return redirect(route('backup.index'));
+            return redirect('/backup');
         }
 
         $archivePath = $this->createBackupArchive($pgDump);
         if (null === $archivePath) {
-            return redirect(route('backup.index'));
+            return redirect('/backup');
         }
 
         try {
@@ -108,7 +108,7 @@ class GoogleDriveController extends Controller
             session()->flash('error', (string) trans('firefly.gdrive_backup_failed'));
         }
 
-        return redirect(route('backup.index'));
+        return redirect('/backup');
     }
 
     public function files(): JsonResponse
@@ -133,28 +133,28 @@ class GoogleDriveController extends Controller
         if (!$this->driveService->isConnected()) {
             session()->flash('error', (string) trans('firefly.gdrive_not_connected'));
 
-            return redirect(route('backup.index'));
+            return redirect('/backup');
         }
 
         $fileId = request()->get('file_id');
         if (empty($fileId)) {
             session()->flash('error', (string) trans('firefly.gdrive_no_file_selected'));
 
-            return redirect(route('backup.index'));
+            return redirect('/backup');
         }
 
         $psqlBin = $this->findBinary('psql');
         if (null === $psqlBin) {
             session()->flash('error', (string) trans('firefly.backup_psql_not_found'));
 
-            return redirect(route('backup.index'));
+            return redirect('/backup');
         }
 
         $tempDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'firefly_gdrive_restore_' . uniqid();
         if (!mkdir($tempDir, 0755, true)) {
             session()->flash('error', (string) trans('firefly.backup_temp_dir_failed'));
 
-            return redirect(route('backup.index'));
+            return redirect('/backup');
         }
 
         try {
@@ -170,13 +170,13 @@ class GoogleDriveController extends Controller
             session()->regenerateToken();
             session()->flash('success', (string) trans('firefly.backup_restore_success'));
 
-            return redirect(route('login'));
+            return redirect('/login');
         } catch (\Exception $e) {
             Log::error('Google Drive restore failed: ' . $e->getMessage());
             $this->cleanupDirectory($tempDir);
             session()->flash('error', (string) trans('firefly.gdrive_restore_failed'));
 
-            return redirect(route('backup.index'));
+            return redirect('/backup');
         }
     }
 
@@ -185,14 +185,14 @@ class GoogleDriveController extends Controller
         if (!$this->driveService->isConnected()) {
             session()->flash('error', (string) trans('firefly.gdrive_not_connected'));
 
-            return redirect(route('backup.index'));
+            return redirect('/backup');
         }
 
         $fileId = request()->get('file_id');
         if (empty($fileId)) {
             session()->flash('error', (string) trans('firefly.gdrive_no_file_selected'));
 
-            return redirect(route('backup.index'));
+            return redirect('/backup');
         }
 
         try {
@@ -203,7 +203,7 @@ class GoogleDriveController extends Controller
             session()->flash('error', (string) trans('firefly.gdrive_delete_failed'));
         }
 
-        return redirect(route('backup.index'));
+        return redirect('/backup');
     }
 
     public function pushPlans(): RedirectResponse
@@ -211,7 +211,7 @@ class GoogleDriveController extends Controller
         if (!$this->driveService->isConnected()) {
             session()->flash('error', (string) trans('firefly.gdrive_not_connected'));
 
-            return redirect(route('backup.index'));
+            return redirect('/backup');
         }
 
         try {
@@ -222,7 +222,7 @@ class GoogleDriveController extends Controller
             session()->flash('error', (string) trans('firefly.gdrive_push_plans_failed'));
         }
 
-        return redirect(route('backup.index'));
+        return redirect('/backup');
     }
 
     public function pullPlans(): RedirectResponse
@@ -230,7 +230,7 @@ class GoogleDriveController extends Controller
         if (!$this->driveService->isConnected()) {
             session()->flash('error', (string) trans('firefly.gdrive_not_connected'));
 
-            return redirect(route('backup.index'));
+            return redirect('/backup');
         }
 
         try {
@@ -241,7 +241,7 @@ class GoogleDriveController extends Controller
             session()->flash('error', (string) trans('firefly.gdrive_pull_plans_failed'));
         }
 
-        return redirect(route('backup.index'));
+        return redirect('/backup');
     }
 
     private function createBackupArchive(string $pgDump): ?string

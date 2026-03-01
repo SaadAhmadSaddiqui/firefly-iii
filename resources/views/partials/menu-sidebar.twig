@@ -210,6 +210,37 @@
         </a>
     </li>
 
+    <li class="{{ activeRoutePartial('bank-import') }} treeview">
+        <a href="#">
+            <em class="fa fa-bank fa-fw"></em>
+            <span>Bank Import</span>
+            <span class="pull-right-container">
+        <span class="fa fa-angle-left pull-right"></span>
+      </span>
+        </a>
+
+        <ul class="treeview-menu">
+            <li class="{{ activeRouteStrict('bank-import.enbd') }}">
+                <a href="{{ route('bank-import.enbd') }}">
+                    <span class="fa fa-angle-right fa-fw"></span>
+                    <span>Emirates NBD / Islamic</span>
+                </a>
+            </li>
+            <li class="{{ activeRouteStrict('bank-import.mashreq') }}">
+                <a href="{{ route('bank-import.mashreq') }}">
+                    <span class="fa fa-angle-right fa-fw"></span>
+                    <span>Mashreq</span>
+                </a>
+            </li>
+            <li class="{{ activeRouteStrict('bank-import.fab') }}">
+                <a href="{{ route('bank-import.fab') }}">
+                    <span class="fa fa-angle-right fa-fw"></span>
+                    <span>FAB</span>
+                </a>
+            </li>
+        </ul>
+    </li>
+
     <li class="{{ activeRoutePartial('administrations') }} {{ activeRoutePartial('setting') }} {{ activeRoutePartial('profile') }} {{ activeRoutePartial('preferences') }} {{ activeRoutePartial('currencies') }} {{ activeRoutePartial('exchange-rates') }} treeview"
         id="option-menu">
         <a href="#">

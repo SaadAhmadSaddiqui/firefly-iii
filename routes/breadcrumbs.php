@@ -637,6 +637,32 @@ Breadcrumbs::for(
     }
 );
 
+// BANK IMPORT
+Breadcrumbs::for(
+    'bank-import.enbd',
+    static function (Generator $breadcrumbs): void {
+        $breadcrumbs->parent('home');
+        $breadcrumbs->push('Bank Import', route('bank-import.enbd'));
+        $breadcrumbs->push('Emirates NBD / Islamic', route('bank-import.enbd'));
+    }
+);
+Breadcrumbs::for(
+    'bank-import.mashreq',
+    static function (Generator $breadcrumbs): void {
+        $breadcrumbs->parent('home');
+        $breadcrumbs->push('Bank Import', route('bank-import.enbd'));
+        $breadcrumbs->push('Mashreq', route('bank-import.mashreq'));
+    }
+);
+Breadcrumbs::for(
+    'bank-import.fab',
+    static function (Generator $breadcrumbs): void {
+        $breadcrumbs->parent('home');
+        $breadcrumbs->push('Bank Import', route('bank-import.enbd'));
+        $breadcrumbs->push('FAB', route('bank-import.fab'));
+    }
+);
+
 // PIGGY BANKS
 Breadcrumbs::for(
     'piggy-banks.index',

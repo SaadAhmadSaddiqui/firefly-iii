@@ -1,0 +1,146 @@
+{% extends './layout/default' %}
+
+{% block breadcrumbs %}
+    {{ Breadcrumbs.render(Route.getCurrentRoute.getName) }}
+{% endblock %}
+
+{% block content %}
+    {# ── Schema Documentation ── #}
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="box box-default collapsed-box">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><span class="fa fa-file-code-o fa-fw"></span> Expected CSV Format</h3>
+                    <div class="box-tools pull-right">
+                        <button type="button" class="btn btn-box-tool" data-widget="collapse"><i class="fa fa-plus"></i></button>
+                    </div>
+                </div>
+                <div class="box-body">
+                    <p>Export your credit card statement from the FAB app or online banking as CSV. The file must have a header row followed by data rows with 5 columns:</p>
+                    <div class="row">
+                        <div class="col-md-7">
+<pre class="schema-pre">Posting Date,Value date,Description,Debit Amount,Credit Amount
+01/03/2025,,2949491030 - FIND SALT  Dubai  ARE,125.00,
+15/03/2025,,3847291050 - CARREFOUR HYPERMARKET  SHARJAH  UAE,89.50,
+20/03/2025,,Card Payment,,500.00</pre>
+                        </div>
+                        <div class="col-md-5">
+                            <table class="table table-condensed table-bordered">
+                                <thead><tr><th>Column</th><th>Description</th></tr></thead>
+                                <tbody>
+                                    <tr><td><code>Posting Date</code></td><td>Transaction date in <code>dd/mm/yyyy</code> format (e.g. 01/03/2025)</td></tr>
+                                    <tr><td><code>Value date</code></td><td>Value date (often empty, not used for import)</td></tr>
+                                    <tr><td><code>Description</code></td><td>Reference number + merchant info (e.g. <code>2949491030 - FIND SALT  Dubai  ARE</code>)</td></tr>
+                                    <tr><td><code>Debit Amount</code></td><td>Amount debited (purchases) -- empty if credit</td></tr>
+                                    <tr><td><code>Credit Amount</code></td><td>Amount credited (refunds/payments) -- empty if debit. <em>Card Payment</em> rows are auto-skipped.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Input Section ── #}
+    <div class="row">
+        <div class="col-lg-4 col-md-5">
+            <div class="box box-primary">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><span class="fa fa-upload fa-fw"></span> Upload</h3>
+                </div>
+                <div class="box-body">
+                    <div class="form-group">
+                        <label for="import-file">Upload CSV file</label>
+                        <input type="file" id="import-file" class="form-control" accept=".csv">
+                    </div>
+                    <p class="text-muted"><small>Or paste the CSV content in the editor on the right.</small></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-8 col-md-7">
+            <div class="box box-info">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><span class="fa fa-code fa-fw"></span> Paste CSV</h3>
+                </div>
+                <div class="box-body" id="editor-wrapper">
+                    <textarea id="code-editor"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Action Buttons ── #}
+    <div class="row">
+        <div class="col-lg-12">
+            <button id="btn-preview" class="btn btn-info btn-lg">
+                <span class="fa fa-eye fa-fw"></span> Preview Transactions
+            </button>
+        </div>
+    </div>
+
+    {# ── Preview / Confirm Section ── #}
+    <div class="row" id="preview-section" style="display: none; margin-top: 15px;">
+        <div class="col-lg-12">
+            <div class="box box-success">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><span class="fa fa-list fa-fw"></span> Preview (<span id="preview-count">0</span> transactions, <span id="skipped-count">0</span> skipped)</h3>
+                </div>
+                <div class="box-body table-responsive no-padding">
+                    <table class="table table-striped table-hover" id="preview-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th class="text-right">Amount</th>
+                                <th>Description</th>
+                                <th>Source</th>
+                                <th>Destination</th>
+                                <th>Tags</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div class="box-footer">
+                    <button id="btn-import" class="btn btn-success btn-lg">
+                        <span class="fa fa-check fa-fw"></span> Confirm Import
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Results Section ── #}
+    <div class="row" id="results-section" style="display: none; margin-top: 15px;">
+        <div class="col-lg-6">
+            <div class="box box-success">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><span class="fa fa-check-circle fa-fw"></span> Import Results</h3>
+                </div>
+                <div class="box-body" id="results-body"></div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block styles %}
+    <link rel="stylesheet" href="/v1/lib/bank-import/import.css">
+{% endblock %}
+
+{% block scripts %}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js" nonce="{{ JS_NONCE }}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/fold/foldcode.min.js" nonce="{{ JS_NONCE }}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/fold/foldgutter.min.js" nonce="{{ JS_NONCE }}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/fold/indent-fold.min.js" nonce="{{ JS_NONCE }}"></script>
+    <script type="text/javascript" nonce="{{ JS_NONCE }}">
+        window.bankImportConfig = {
+            csrfToken: '{{ csrf_token() }}',
+            previewUrl: '{{ route("bank-import.fab.preview") }}',
+            importUrl: '{{ route("bank-import.fab.import") }}',
+            editorMode: 'text/plain',
+            sourceAccountParamName: null
+        };
+    </script>
+    <script src="/v1/lib/bank-import/import.js" nonce="{{ JS_NONCE }}"></script>
+{% endblock %}

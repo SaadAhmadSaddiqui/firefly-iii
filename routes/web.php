@@ -741,6 +741,21 @@ Route::group(
         Route::post('google-drive/pull-plans', ['uses' => 'Backup\GoogleDriveController@pullPlans', 'as' => 'gdrive.pull-plans']);
     }
 );
+// Bank Import controller.
+Route::group(
+    ['middleware' => 'user-full-auth', 'namespace' => 'FireflyIII\Http\Controllers', 'prefix' => 'bank-import', 'as' => 'bank-import.'],
+    static function (): void {
+        Route::get('enbd', ['uses' => 'BankImport\ImportController@enbd', 'as' => 'enbd']);
+        Route::get('mashreq', ['uses' => 'BankImport\ImportController@mashreq', 'as' => 'mashreq']);
+        Route::get('fab', ['uses' => 'BankImport\ImportController@fab', 'as' => 'fab']);
+        Route::post('enbd/preview', ['uses' => 'BankImport\ImportController@previewEnbd', 'as' => 'enbd.preview']);
+        Route::post('mashreq/preview', ['uses' => 'BankImport\ImportController@previewMashreq', 'as' => 'mashreq.preview']);
+        Route::post('fab/preview', ['uses' => 'BankImport\ImportController@previewFab', 'as' => 'fab.preview']);
+        Route::post('enbd/import', ['uses' => 'BankImport\ImportController@importEnbd', 'as' => 'enbd.import']);
+        Route::post('mashreq/import', ['uses' => 'BankImport\ImportController@importMashreq', 'as' => 'mashreq.import']);
+        Route::post('fab/import', ['uses' => 'BankImport\ImportController@importFab', 'as' => 'fab.import']);
+    }
+);
 // Object group controller.
 Route::group(
     ['middleware' => 'user-full-auth', 'namespace' => 'FireflyIII\Http\Controllers', 'prefix' => 'groups', 'as' => 'object-groups.'],
