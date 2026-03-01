@@ -3016,4 +3016,9 @@ return [
     // dashboard
     'enable_auto_convert'                                 => 'Enable currency conversion',
     'disable_auto_convert'                                => 'Disable currency conversion',
+
+    // period navigation
+    'previous'                                            => 'Previous',
+    'next'                                                => 'Next',
+    'jump_to_current'                                     => 'Back to current period',
 ];

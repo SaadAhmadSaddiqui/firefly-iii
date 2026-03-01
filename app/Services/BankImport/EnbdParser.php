@@ -51,7 +51,8 @@ class EnbdParser
     {
         $type       = $txn['type'] ?? '';
         $direction  = $txn['creditDebitIndicator'] ?? '';
-        $amount     = (float) ($txn['amount'] ?? 0);
+        $rawAmount  = $txn['amount'] ?? 0;
+        $amount     = is_array($rawAmount) ? (float) ($rawAmount['parsedValue'] ?? $rawAmount['source'] ?? 0) : (float) $rawAmount;
         $currency   = $txn['currencyCode'] ?? 'AED';
         $dateMs     = $txn['date'] ?? $txn['transactionDate'] ?? null;
         $externalId = $txn['id'] ?? null;
