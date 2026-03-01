@@ -29,14 +29,20 @@ class SetupMarchBudget extends Command
                             {--dry-run : Preview what would be created without making changes}';
 
     private const array BUDGETS = [
-        ['name' => 'Groceries',               'amount' => '1500'],
-        ['name' => 'Food Delivery',            'amount' => '250'],
-        ['name' => 'Dining Out',               'amount' => '200'],
-        ['name' => 'Transportation',           'amount' => '500'],
-        ['name' => 'Medical',                  'amount' => '100'],
-        ['name' => 'Grooming',                 'amount' => '90'],
-        ['name' => 'Personal Subscriptions',   'amount' => '770'],
-        ['name' => 'Business Tools',           'amount' => '1400'],
+        ['name' => 'Business Tools',                 'amount' => '1400'],
+        ['name' => 'Groceries',                      'amount' => '1500'],
+        ['name' => 'Education (Preply)',              'amount' => '1180'],
+        ['name' => 'Utilities (e& + SEWA)',           'amount' => '1050'],
+        ['name' => 'Personal Subscriptions',          'amount' => '770'],
+        ['name' => 'Transportation',                  'amount' => '500'],
+        ['name' => 'Fitness (GymNation, 2 people)',   'amount' => '400'],
+        ['name' => 'Donations',                       'amount' => '384'],
+        ['name' => 'Food Delivery',                   'amount' => '250'],
+        ['name' => 'Dining Out',                      'amount' => '200'],
+        ['name' => 'Medical',                         'amount' => '100'],
+        ['name' => 'Grooming',                        'amount' => '90'],
+        ['name' => 'Shopping',                        'amount' => '0'],
+        ['name' => 'Activities / Outings',            'amount' => '0'],
     ];
 
     private const array PIGGY_BANKS = [
