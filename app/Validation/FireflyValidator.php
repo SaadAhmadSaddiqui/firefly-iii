@@ -497,6 +497,39 @@ class FireflyValidator extends Validator
             }
         }
 
+        $dayOfMonthTriggers = [
+            'date_on_day', 'interest_date_on_day', 'book_date_on_day', 'process_date_on_day',
+            'due_date_on_day', 'payment_date_on_day', 'invoice_date_on_day',
+            'created_at_on_day', 'updated_at_on_day',
+        ];
+        if (in_array($triggerType, $dayOfMonthTriggers, true)) {
+            $intVal = (int) $value;
+
+            return $intVal >= 1 && $intVal <= 31;
+        }
+
+        $monthTriggers = [
+            'date_on_month', 'interest_date_on_month', 'book_date_on_month', 'process_date_on_month',
+            'due_date_on_month', 'payment_date_on_month', 'invoice_date_on_month',
+            'created_at_on_month', 'updated_at_on_month',
+        ];
+        if (in_array($triggerType, $monthTriggers, true)) {
+            $intVal = (int) $value;
+
+            return $intVal >= 1 && $intVal <= 12;
+        }
+
+        $dayOfWeekTriggers = [
+            'date_on_day_of_week', 'interest_date_on_day_of_week', 'book_date_on_day_of_week',
+            'process_date_on_day_of_week', 'due_date_on_day_of_week', 'payment_date_on_day_of_week',
+            'invoice_date_on_day_of_week', 'created_at_on_day_of_week', 'updated_at_on_day_of_week',
+        ];
+        if (in_array($triggerType, $dayOfWeekTriggers, true)) {
+            $intVal = (int) $value;
+
+            return $intVal >= 1 && $intVal <= 7;
+        }
+
         return true;
     }
 

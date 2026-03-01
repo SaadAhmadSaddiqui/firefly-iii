@@ -26,6 +26,7 @@ namespace FireflyIII\Helpers\Collector\Extensions;
 
 use Carbon\Carbon;
 use FireflyIII\Helpers\Collector\GroupCollectorInterface;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Trait TimeCollection
@@ -56,6 +57,20 @@ trait TimeCollection
     public function dayIsNot(string $day): GroupCollectorInterface
     {
         $this->query->whereDay('transaction_journals.date', '!=', $day);
+
+        return $this;
+    }
+
+    public function dayOfWeekIs(string $dayOfWeek): GroupCollectorInterface
+    {
+        $this->dayOfWeekQuery('transaction_journals.date', '=', $dayOfWeek);
+
+        return $this;
+    }
+
+    public function dayOfWeekIsNot(string $dayOfWeek): GroupCollectorInterface
+    {
+        $this->dayOfWeekQuery('transaction_journals.date', '!=', $dayOfWeek);
 
         return $this;
     }
@@ -171,6 +186,40 @@ trait TimeCollection
             foreach ($object['transactions'] as $transaction) {
                 if (array_key_exists($field, $transaction) && $transaction[$field] instanceof Carbon) {
                     return (int) $day !== $transaction[$field]->day;
+                }
+            }
+
+            return false;
+        };
+        $this->postFilters[] = $filter;
+
+        return $this;
+    }
+
+    public function metaDayOfWeekIs(string $dayOfWeek, string $field): GroupCollectorInterface
+    {
+        $this->withMetaDate($field);
+        $filter              = static function (array $object) use ($field, $dayOfWeek): bool {
+            foreach ($object['transactions'] as $transaction) {
+                if (array_key_exists($field, $transaction) && $transaction[$field] instanceof Carbon) {
+                    return (int) $dayOfWeek === $transaction[$field]->dayOfWeekIso;
+                }
+            }
+
+            return false;
+        };
+        $this->postFilters[] = $filter;
+
+        return $this;
+    }
+
+    public function metaDayOfWeekIsNot(string $dayOfWeek, string $field): GroupCollectorInterface
+    {
+        $this->withMetaDate($field);
+        $filter              = static function (array $object) use ($field, $dayOfWeek): bool {
+            foreach ($object['transactions'] as $transaction) {
+                if (array_key_exists($field, $transaction) && $transaction[$field] instanceof Carbon) {
+                    return (int) $dayOfWeek !== $transaction[$field]->dayOfWeekIso;
                 }
             }
 
@@ -369,6 +418,20 @@ trait TimeCollection
     public function objectDayIsNot(string $day, string $field): GroupCollectorInterface
     {
         $this->query->whereDay(sprintf('transaction_journals.%s', $field), '!=', $day);
+
+        return $this;
+    }
+
+    public function objectDayOfWeekIs(string $dayOfWeek, string $field): GroupCollectorInterface
+    {
+        $this->dayOfWeekQuery(sprintf('transaction_journals.%s', $field), '=', $dayOfWeek);
+
+        return $this;
+    }
+
+    public function objectDayOfWeekIsNot(string $dayOfWeek, string $field): GroupCollectorInterface
+    {
+        $this->dayOfWeekQuery(sprintf('transaction_journals.%s', $field), '!=', $dayOfWeek);
 
         return $this;
     }
@@ -646,5 +709,38 @@ trait TimeCollection
         $this->query->whereYear('transaction_journals.date', '!=', $year);
 
         return $this;
+    }
+
+    /**
+     * User-facing: 1=Monday .. 7=Sunday (ISO-8601).
+     * MySQL DAYOFWEEK: 1=Sunday .. 7=Saturday, so Monday=2.
+     * PostgreSQL EXTRACT(ISODOW): 1=Monday .. 7=Sunday (matches directly).
+     * SQLite strftime('%w'): 0=Sunday .. 6=Saturday, so Monday=1.
+     */
+    private function dayOfWeekQuery(string $column, string $operator, string $isoDayOfWeek): void
+    {
+        $driver = DB::connection()->getDriverName();
+        $dow    = (int) $isoDayOfWeek;
+
+        switch ($driver) {
+            case 'pgsql':
+                $this->query->whereRaw(sprintf('EXTRACT(ISODOW FROM %s) %s ?', $column, $operator), [$dow]);
+
+                break;
+
+            case 'sqlite':
+                // strftime('%w') returns 0=Sunday..6=Saturday; convert ISO (1=Mon..7=Sun) to that range
+                $sqliteDow = 7 === $dow ? 0 : $dow;
+                $this->query->whereRaw(sprintf("CAST(strftime('%%w', %s) AS INTEGER) %s ?", $column, $operator), [$sqliteDow]);
+
+                break;
+
+            default:
+                // MySQL/MariaDB: DAYOFWEEK returns 1=Sunday..7=Saturday; convert ISO to MySQL
+                $mysqlDow = 7 === $dow ? 1 : $dow + 1;
+                $this->query->whereRaw(sprintf('DAYOFWEEK(%s) %s ?', $column, $operator), [$mysqlDow]);
+
+                break;
+        }
     }
 }
