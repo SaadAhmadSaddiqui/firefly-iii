@@ -66,6 +66,15 @@ abstract class Controller extends BaseController
     protected string $monthFormat;
     protected string $redirectUrl    = '/';
 
+    protected function getPageSize(): int
+    {
+        if ('all' === request()->get('per_page')) {
+            return 2147483647;
+        }
+
+        return (int) Preferences::get('listPageSize', 50)->data;
+    }
+
     /**
      * Controller constructor.
      */
@@ -134,6 +143,16 @@ abstract class Controller extends BaseController
         View::share('FF_IS_DEVELOP', $isDevelop);
 
         $this->middleware(function ($request, $next): mixed {
+            $query              = $request->query();
+            $queryWithAll       = array_merge($query, ['per_page' => 'all']);
+            unset($queryWithAll['page']);
+            $queryPaginated     = $query;
+            unset($queryPaginated['per_page'], $queryPaginated['page']);
+
+            View::share('ppIsShowAll', 'all' === $request->get('per_page'));
+            View::share('ppUrlShowAll', $request->url() . '?' . http_build_query($queryWithAll));
+            View::share('ppUrlPaginated', $request->url() . ([] !== $queryPaginated ? '?' . http_build_query($queryPaginated) : ''));
+
             $locale                  = Steam::getLocale();
             // translations for specific strings:
             $this->monthFormat       = (string) trans('config.month_js', [], $locale);

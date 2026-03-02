@@ -33,6 +33,7 @@
                         <!-- list of recurring here -->
                         <div style="padding-left:8px;">
                             {{ paginator.links('pagination.bootstrap-4')|raw }}
+                            {% include 'partials.per-page-toggle' %}
                         </div>
                         <table class="table table-responsive  table-hover sortable">
                             <thead>
@@ -143,6 +144,7 @@
                         </table>
                         <div style="padding-left:8px;">
                             {{ paginator.links('pagination.bootstrap-4')|raw }}
+                            {% include 'partials.per-page-toggle' %}
                         </div>
                     </div>
                     <div class="box-footer">

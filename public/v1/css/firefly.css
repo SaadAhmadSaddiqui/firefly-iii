@@ -263,6 +263,17 @@ span.twitter-typeahead {
     background-color: #f5f5f5;
 }
 
+.skin-firefly-iii .form-control::placeholder {
+    color: #8a9199;
+    opacity: 1;
+}
+.skin-firefly-iii .form-control::-webkit-input-placeholder {
+    color: #8a9199;
+}
+.skin-firefly-iii input[type="date"].form-control {
+    color-scheme: dark;
+}
+
 
 /*
 .twitter-typeahead {

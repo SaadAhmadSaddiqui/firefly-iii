@@ -118,7 +118,7 @@ class ShowController extends Controller
         $today            = today(config('app.timezone'));
         $subTitleIcon     = config(sprintf('firefly.subIconsByIdentifier.%s', $account->accountType->type));
         $page             = (int) $request->get('page');
-        $pageSize         = (int) Preferences::get('listPageSize', 50)->data;
+        $pageSize         = $this->getPageSize();
         $accountCurrency  = $this->repository->getAccountCurrency($account);
         $currency         = $accountCurrency ?? $this->primaryCurrency;
         $fStart           = $start->isoFormat($this->monthAndDayFormat);
@@ -229,7 +229,7 @@ class ShowController extends Controller
         $start        = $this->repository->oldestJournalDate($account) ?? today(config('app.timezone'))->startOfMonth();
         $subTitleIcon = config('firefly.subIconsByIdentifier.'.$account->accountType->type);
         $page         = (int) $request->get('page');
-        $pageSize     = (int) Preferences::get('listPageSize', 50)->data;
+        $pageSize     = $this->getPageSize();
         $currency     = $this->repository->getAccountCurrency($account) ?? $this->primaryCurrency;
         $subTitle     = (string) trans('firefly.all_journals_for_account', ['name' => $account->name]);
         $periods      = new Collection();

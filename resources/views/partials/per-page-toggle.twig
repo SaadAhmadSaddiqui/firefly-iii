@@ -1,0 +1,11 @@
+<span class="per-page-toggle small" style="margin-left:10px;">
+    {% if ppIsShowAll %}
+        <a href="{{ ppUrlPaginated }}" title="Show paginated results">
+            <span class="fa fa-files-o fa-fw"></span> Paginate
+        </a>
+    {% else %}
+        <a href="{{ ppUrlShowAll }}" title="Show all records on one page">
+            <span class="fa fa-list fa-fw"></span> Show all
+        </a>
+    {% endif %}
+</span>

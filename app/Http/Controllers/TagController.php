@@ -228,7 +228,7 @@ class TagController extends Controller
         // default values:
         $subTitleIcon = 'fa-tag';
         $page         = (int) $request->get('page');
-        $pageSize     = (int) Preferences::get('listPageSize', 50)->data;
+        $pageSize     = $this->getPageSize();
         $start       ??= session('start');
         $end         ??= session('end');
         $location     = $this->repository->getLocation($tag);
@@ -302,7 +302,7 @@ class TagController extends Controller
         // default values:
         $subTitleIcon = 'fa-tag';
         $page         = (int) $request->get('page');
-        $pageSize     = (int) Preferences::get('listPageSize', 50)->data;
+        $pageSize     = $this->getPageSize();
         $periods      = [];
         $subTitle     = (string) trans('firefly.all_journals_for_tag', ['tag' => $tag->tag]);
         $start        = $this->repository->firstUseDate($tag) ?? today(config('app.timezone'));
