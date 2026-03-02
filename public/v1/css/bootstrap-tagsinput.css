@@ -7,7 +7,9 @@
     background-color: inherit;
     border: 1px solid #ccc;
     box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075);
-    display: block;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     padding: 4px 6px;
     color: inherit;
     vertical-align: middle;
@@ -16,6 +18,11 @@
     min-height: 34px;
     line-height: 22px;
     cursor: text;
+    gap: 3px;
+}
+.bootstrap-tagsinput .twitter-typeahead {
+    flex: 1 1 60px;
+    min-width: 60px;
 }
 .bootstrap-tagsinput input {
     border: none;
@@ -24,8 +31,10 @@
     background-color: transparent;
     padding: 0 6px;
     margin: 0;
-    width: auto;
+    width: 100%;
     max-width: inherit;
+    flex: 1 1 60px;
+    min-width: 60px;
 }
 .bootstrap-tagsinput.form-control input::-moz-placeholder {
     color: #777;
@@ -42,18 +51,19 @@
     box-shadow: none;
 }
 .bootstrap-tagsinput .tag {
-    display: inline-block;
-    margin: 2px 4px 2px 0;
-    padding: 2px 8px;
+    display: inline-flex;
+    align-items: center;
+    margin: 1px 0;
+    padding: 3px 8px;
     background-color: #3c8dbc;
     color: #fff;
     border-radius: 3px;
     font-size: 13px;
-    line-height: 1.6;
+    line-height: 1.4;
     white-space: nowrap;
 }
 .bootstrap-tagsinput .tag [data-role="remove"] {
-    margin-left: 8px;
+    margin-left: 6px;
     cursor: pointer;
     font-weight: bold;
     opacity: 0.7;
@@ -71,7 +81,7 @@
     color: #e9ecef;
 }
 .dark-mode .bootstrap-tagsinput .tag {
-    background-color: #17a2b8;
+    background-color: #6f42c1;
 }
 .dark-mode .bootstrap-tagsinput input {
     color: #e9ecef;

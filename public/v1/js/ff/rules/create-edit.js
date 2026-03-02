@@ -50,9 +50,9 @@ $(function () {
     $('.remove-trigger').unbind('click').click(removeTrigger);
     $('.remove-action').unbind('click').click(removeAction);
 
-    // Collect primary + OR values into JSON before form submit.
+    // Serialize tagsinput values as JSON before form submit.
     $('form').on('submit', function () {
-        serializeTriggerOrValues();
+        serializeTagsinputValues();
     });
 });
 
@@ -220,14 +220,6 @@ function onAddNewTrigger() {
         updateTriggerInput(target)
     });
 
-    // Bind + OR and remove-OR buttons (unbind first to avoid duplicates).
-    $('.add-or-value').unbind('click').click(function () {
-        addOrValueRow($(this));
-    });
-    $('.remove-or-value').unbind('click').click(function () {
-        $(this).closest('.or-value-row').remove();
-    });
-
     $.each($('.rule-trigger-holder'), function (i, v) {
         var holder = $(v);
         var select = holder.find('select');
@@ -338,7 +330,7 @@ function updateTriggerInput(selectList) {
 
     console.log('Searching for children in this row with query "' + inputQuery + '" resulted in ' + inputResult.length + ' results.');
 
-    try { inputResult.typeahead('destroy'); } catch (e) { /* ignore */ }
+    destroyTriggerTagsInput(inputResult);
     inputResult.prop('disabled', false);
     inputResult.prop('type', 'text');
     inputResult.removeAttr('placeholder');
@@ -452,71 +444,116 @@ function updateTriggerInput(selectList) {
 
     if (disableInput) {
         inputResult.prop('disabled', true);
-        // Also hide the + OR link for disabled triggers.
-        parent.find('.add-or-value').hide();
-        parent.find('.or-values-container').hide();
         return;
     }
 
-    parent.find('.add-or-value').show();
-    parent.find('.or-values-container').show();
-
-    if (autoCompleteURL) {
-        createAutoComplete(inputResult, autoCompleteURL);
-        // Also set up autocomplete on any existing OR value inputs.
-        parent.find('.or-value-input').each(function () {
-            createAutoComplete($(this), autoCompleteURL);
-        });
-    } else {
-        try { inputResult.typeahead('destroy'); } catch (e) { /* ignore */ }
-    }
-
-    // Store the autocomplete URL on the row so new OR inputs can pick it up.
-    parent.data('autocomplete-url', autoCompleteURL || '');
+    initTriggerTagsInput(inputResult, autoCompleteURL);
 }
 
 /**
- * Add a new OR-value input row below the trigger value.
+ * Destroy existing tagsinput (and any typeahead on its internal input).
  */
-function addOrValueRow($link) {
-    var $td = $link.closest('td');
-    var $container = $td.find('.or-values-container');
-    var $row = $('<div class="or-value-row" style="display:flex; align-items:center; margin-top:4px; gap:4px;">' +
-        '<span style="font-size:11px; color:#888; flex-shrink:0;">OR</span>' +
-        '<input type="text" class="form-control input-sm or-value-input" autocomplete="off" />' +
-        '<button type="button" class="btn btn-xs btn-danger remove-or-value" title="Remove">&times;</button>' +
-        '</div>');
-    $container.append($row);
+function destroyTriggerTagsInput(input) {
+    try {
+        if (input.data('tagsinput')) {
+            var $ti = input.tagsinput('input');
+            if ($ti && $ti.length) {
+                try { $ti.typeahead('destroy'); } catch (ex) { /* ok */ }
+                $ti.off('keydown typeahead:selected typeahead:autocompleted');
+            }
+            input.tagsinput('destroy');
+        }
+    } catch (e) { /* ignore */ }
+}
 
-    var autoCompleteURL = $td.closest('tr').data('autocomplete-url');
-    if (autoCompleteURL) {
-        createAutoComplete($row.find('.or-value-input'), autoCompleteURL);
+/**
+ * Initialize tagsinput on a trigger value input, with optional autocomplete.
+ */
+function initTriggerTagsInput(input, autoCompleteURL) {
+    if (typeof $.fn.tagsinput === 'undefined') return;
+
+    // Empty confirmKeys -- we handle Enter ourselves via keydown.
+    try {
+        input.tagsinput({trimValue: true, confirmKeys: [], freeInput: true});
+    } catch (e) {
+        console.error('tagsinput init error:', e);
+        return;
+    }
+
+    var $ti = input.tagsinput('input');
+
+    // Set up typeahead on the internal input.
+    if (autoCompleteURL && typeof Bloodhound !== 'undefined') {
+        try {
+            var sep = (autoCompleteURL[autoCompleteURL.length - 1] === '&') ? '' : '?';
+            var bh = new Bloodhound({
+                datumTokenizer: Bloodhound.tokenizers.obj.whitespace('name'),
+                queryTokenizer: Bloodhound.tokenizers.whitespace,
+                prefetch: {
+                    url: autoCompleteURL + sep + 'uid=' + uid,
+                    filter: function (list) { return $.map(list, function (i) { return {name: i.name}; }); }
+                },
+                remote: {
+                    url: autoCompleteURL + sep + 'query=%QUERY&uid=' + uid,
+                    wildcard: '%QUERY',
+                    filter: function (list) { return $.map(list, function (i) { return {name: i.name}; }); }
+                }
+            });
+            bh.initialize();
+            $ti.typeahead(
+                {hint: true, highlight: true, minLength: 1},
+                {name: 'trigger_ac', displayKey: 'name', source: bh.ttAdapter()}
+            );
+            $ti.on('typeahead:selected typeahead:autocompleted', function (_e, datum) {
+                if (datum && datum.name) {
+                    input.tagsinput('add', datum.name);
+                    $ti.typeahead('val', '');
+                }
+            });
+        } catch (e) {
+            console.error('typeahead setup error:', e);
+        }
+    }
+
+    // Enter key: add tag, prevent form submission.
+    $ti.on('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            var val = '';
+            try { val = $ti.typeahead('val'); } catch (ex) { val = $ti.val(); }
+            val = $.trim(val);
+            if (val) {
+                input.tagsinput('add', val);
+                try { $ti.typeahead('val', ''); } catch (ex) { /* ok */ }
+                $ti.val('');
+            }
+        }
+    });
+
+    // Pre-populate from data-values (JSON array from the backend).
+    var existing = input.data('values');
+    if (existing && Array.isArray(existing) && existing.length > 0) {
+        input.tagsinput('removeAll');
+        for (var i = 0; i < existing.length; i++) {
+            if (existing[i] !== '') input.tagsinput('add', existing[i]);
+        }
+        input.data('values', []);
     }
 }
 
 /**
- * Before form submit / test: gather primary + OR values into JSON on the
- * hidden primary input so the backend receives a single JSON array.
+ * Before form submit: write tagsinput items as JSON into each trigger's
+ * hidden input so the backend receives the correct value.
  */
-function serializeTriggerOrValues() {
-    $('.rule-trigger-holder').each(function () {
-        var $row = $(this);
-        var $primary = $row.find('.trigger-value-input');
-        if (!$primary.length) return;
-
-        var values = [];
-        var pv = $.trim($primary.val());
-        if (pv !== '') values.push(pv);
-
-        $row.find('.or-value-input').each(function () {
-            var v = $.trim($(this).val());
-            if (v !== '') values.push(v);
-        });
-
-        if (values.length > 1) {
-            $primary.val(JSON.stringify(values));
-        } else if (values.length === 1) {
-            $primary.val(values[0]);
+function serializeTagsinputValues() {
+    $('.trigger-values-input').each(function () {
+        var $input = $(this);
+        if ($input.data('tagsinput')) {
+            var items = $input.tagsinput('items');
+            if (items && items.length > 0) {
+                $input.val(JSON.stringify(items));
+            }
         }
     });
 }
@@ -589,16 +626,8 @@ function testRuleTriggers() {
     button.html('<span class="fa fa-spin fa-spinner"></span> ' + testRuleTriggersText);
     button.attr('disabled', 'disabled');
 
-    // Save original values, serialize for submission, then restore UI values.
-    var savedValues = [];
-    $('.rule-trigger-holder .trigger-value-input').each(function () {
-        savedValues.push($(this).val());
-    });
-    serializeTriggerOrValues();
+    serializeTagsinputValues();
     var triggerData = $('.content').find("#ffInput_strict, .rule-trigger-tbody input[type=text], .rule-trigger-tbody input[type=number], .rule-trigger-tbody input[type=checkbox], .rule-trigger-tbody select").serializeArray();
-    $('.rule-trigger-holder .trigger-value-input').each(function (i) {
-        if (i < savedValues.length) $(this).val(savedValues[i]);
-    });
 
     console.log('Found the following trigger data: ');
     console.log(triggerData);

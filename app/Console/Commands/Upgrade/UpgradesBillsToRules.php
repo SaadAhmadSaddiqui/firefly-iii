@@ -141,6 +141,12 @@ class UpgradesBillsToRules extends Command
             'active'      => $bill->active,
         ];
         $this->billRepository->update($bill, $newBillData);
+
+        // BillUpdateService::updateBillProperties() unconditionally resets match to 'EMPTY',
+        // so we must set it directly to prevent duplicate rules on every container restart.
+        $bill->match = 'MIGRATED_TO_RULES';
+        $bill->save();
+
         ++$this->count;
     }
 
