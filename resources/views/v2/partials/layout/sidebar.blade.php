@@ -191,6 +191,12 @@
                         <p>{{ __('firefly.export_data_menu') }}</p>
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a href="{{ route('backup.index') }}" class="nav-link">
+                        <i class="nav-icon fa-solid fa-database"></i>
+                        <p>{{ __('firefly.backup_menu') }}</p>
+                    </a>
+                </li>
 
                 <li class="nav-item">
                     <a href="{{ route('logout') }}" class="nav-link logout-link">
