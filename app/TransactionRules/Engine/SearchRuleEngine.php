@@ -184,7 +184,6 @@ class SearchRuleEngine implements RuleEngineInterface
     private function findNonStrictRule(Rule $rule): Collection
     {
         Log::debug(sprintf('findNonStrictRule(#%d)', $rule->id));
-        // start a search query for individual each trigger:
         $total    = new Collection();
         $count    = 0;
         $triggers = [];
@@ -217,41 +216,41 @@ class SearchRuleEngine implements RuleEngineInterface
 
                 continue;
             }
-            $searchArray  = [];
-            $needsContext = config(sprintf('search.operators.%s.needs_context', $ruleTrigger->trigger_type)) ?? true;
-            if (false === $needsContext) {
-                Log::debug(sprintf('SearchRuleEngine:: non strict, will search for: %s:true', $ruleTrigger->trigger_type));
-                $searchArray[$ruleTrigger->trigger_type] = 'true';
-            }
-            if (true === $needsContext) {
-                Log::debug(sprintf('SearchRuleEngine:: non strict, will search for: %s:"%s"', $ruleTrigger->trigger_type, $ruleTrigger->trigger_value));
-                $searchArray[$ruleTrigger->trigger_type] = sprintf('"%s"', $ruleTrigger->trigger_value);
+
+            $triggerValues = $this->parseTriggerValues((string) $ruleTrigger->trigger_value, $ruleTrigger->trigger_type);
+
+            foreach ($triggerValues as $singleValue) {
+                $searchArray  = [];
+                $needsContext = config(sprintf('search.operators.%s.needs_context', $ruleTrigger->trigger_type)) ?? true;
+                if (false === $needsContext) {
+                    $searchArray[$ruleTrigger->trigger_type] = 'true';
+                }
+                if (true === $needsContext) {
+                    $searchArray[$ruleTrigger->trigger_type] = sprintf('"%s"', $singleValue);
+                }
+
+                foreach ($this->operators as $operator) {
+                    $searchArray[$operator['type']] = sprintf('"%s"', $operator['value']);
+                }
+
+                $searchEngine = app(SearchInterface::class);
+                $searchEngine->setUser($this->user);
+                $searchEngine->setPage(1);
+                $searchEngine->setLimit(31337);
+
+                foreach ($searchArray as $type => $value) {
+                    $searchEngine->parseQuery(sprintf('%s:%s', $type, $value));
+                }
+
+                $result       = $searchEngine->searchTransactions();
+                $collection   = $result->getCollection();
+                Log::debug(sprintf('Found in this run, %d transactions', $collection->count()));
+                $total        = $total->merge($collection);
+                Log::debug(sprintf('Total collection is now %d transactions', $total->count()));
+                ++$count;
             }
 
-            // then, add local operators as well:
-            foreach ($this->operators as $operator) {
-                Log::debug(sprintf('SearchRuleEngine:: add local added operator: %s:"%s"', $operator['type'], $operator['value']));
-                $searchArray[$operator['type']] = sprintf('"%s"', $operator['value']);
-            }
-
-            // build and run the search engine.
-            $searchEngine = app(SearchInterface::class);
-            $searchEngine->setUser($this->user);
-            $searchEngine->setPage(1);
-            $searchEngine->setLimit(31337);
-
-            foreach ($searchArray as $type => $value) {
-                $searchEngine->parseQuery(sprintf('%s:%s', $type, $value));
-            }
-
-            $result       = $searchEngine->searchTransactions();
-            $collection   = $result->getCollection();
-            Log::debug(sprintf('Found in this run, %d transactions', $collection->count()));
-            $total        = $total->merge($collection);
-            Log::debug(sprintf('Total collection is now %d transactions', $total->count()));
-            ++$count;
-            // if trigger says stop processing, do so.
-            if (true === $ruleTrigger->stop_processing && $result->count() > 0) {
+            if (true === $ruleTrigger->stop_processing && $total->count() > 0) {
                 Log::debug('The trigger in this rule trigger says to stop processing, so stop processing other triggers.');
 
                 break;
@@ -260,7 +259,6 @@ class SearchRuleEngine implements RuleEngineInterface
         Log::debug(sprintf('Total collection is now %d transactions', $total->count()));
         Log::debug(sprintf('Done running %d trigger(s)', $count));
 
-        // make collection unique
         $unique   = $total->unique(static function (array $group): string {
             $str = '';
             foreach ($group['transactions'] as $transaction) {
@@ -268,8 +266,6 @@ class SearchRuleEngine implements RuleEngineInterface
             }
 
             return sprintf('%d%s', $group['id'], $str);
-
-            // Log::debug(sprintf('Return key: %s ', $key));
         });
 
         Log::debug(sprintf('SearchRuleEngine:: Found %d transactions using search engine.', $unique->count()));
@@ -283,8 +279,9 @@ class SearchRuleEngine implements RuleEngineInterface
     private function findStrictRule(Rule $rule): Collection
     {
         Log::debug(sprintf('Now in findStrictRule(#%d)', $rule->id ?? 0));
-        $searchArray  = [];
-        $triggers     = [];
+        $singleValueSearch  = [];
+        $multiValueTriggers = [];
+        $triggers           = [];
         if ($this->refreshTriggers) {
             $triggers = $rule->ruleTriggers()->orderBy('order', 'ASC')->get();
         }
@@ -302,29 +299,66 @@ class SearchRuleEngine implements RuleEngineInterface
                 $contextSearch = substr((string) $ruleTrigger->trigger_type, 1);
             }
 
-            // if the trigger needs no context, value is different:
             $needsContext  = (bool) (config(sprintf('search.operators.%s.needs_context', $contextSearch)) ?? true);
             if (false === $needsContext) {
                 Log::debug(sprintf('SearchRuleEngine:: add a rule trigger (no context): %s:true', $ruleTrigger->trigger_type));
-                $searchArray[$ruleTrigger->trigger_type][] = 'true';
+                $singleValueSearch[$ruleTrigger->trigger_type][] = 'true';
+
+                continue;
             }
-            if ($needsContext) {
-                Log::debug(sprintf('SearchRuleEngine:: add a rule trigger (context): %s:"%s"', $ruleTrigger->trigger_type, $ruleTrigger->trigger_value));
-                $searchArray[$ruleTrigger->trigger_type][] = sprintf('"%s"', $ruleTrigger->trigger_value);
+
+            $triggerValues = $this->parseTriggerValues((string) $ruleTrigger->trigger_value, $ruleTrigger->trigger_type);
+            if (1 === count($triggerValues)) {
+                Log::debug(sprintf('SearchRuleEngine:: add a rule trigger (context): %s:"%s"', $ruleTrigger->trigger_type, $triggerValues[0]));
+                $singleValueSearch[$ruleTrigger->trigger_type][] = sprintf('"%s"', $triggerValues[0]);
+            } else {
+                Log::debug(sprintf('SearchRuleEngine:: multi-value trigger %s with %d values (OR)', $ruleTrigger->trigger_type, count($triggerValues)));
+                $multiValueTriggers[] = [
+                    'type'   => $ruleTrigger->trigger_type,
+                    'values' => $triggerValues,
+                ];
             }
         }
 
-        // add local operators:
         foreach ($this->operators as $operator) {
             Log::debug(sprintf('SearchRuleEngine:: add local added operator: %s:"%s"', $operator['type'], $operator['value']));
-            $searchArray[$operator['type']][] = sprintf('"%s"', $operator['value']);
+            $singleValueSearch[$operator['type']][] = sprintf('"%s"', $operator['value']);
         }
+
+        if (0 === count($multiValueTriggers)) {
+            return $this->runStrictSearch($singleValueSearch);
+        }
+
+        $combinations = $this->cartesianProduct($multiValueTriggers);
+        Log::debug(sprintf('SearchRuleEngine:: %d cartesian combinations to search', count($combinations)));
+        $total        = new Collection();
+
+        foreach ($combinations as $combo) {
+            $searchArray = $singleValueSearch;
+            foreach ($combo as $entry) {
+                $searchArray[$entry['type']][] = sprintf('"%s"', $entry['value']);
+            }
+            $result = $this->runStrictSearch($searchArray);
+            $total  = $total->merge($result);
+        }
+
+        return $total->unique(static function (array $group): string {
+            $str = '';
+            foreach ($group['transactions'] as $transaction) {
+                $str = sprintf('%s%d', $str, $transaction['transaction_journal_id']);
+            }
+
+            return sprintf('%d%s', $group['id'], $str);
+        });
+    }
+
+    private function runStrictSearch(array $searchArray): Collection
+    {
         $date         = today(config('app.timezone'));
         if ($this->hasSpecificJournalTrigger($searchArray)) {
             $date = $this->setDateFromJournalTrigger($searchArray);
         }
 
-        // build and run the search engine.
         $searchEngine = app(SearchInterface::class);
         $searchEngine->setUser($this->user);
         $searchEngine->setPage(1);
@@ -342,6 +376,40 @@ class SearchRuleEngine implements RuleEngineInterface
         $result       = $searchEngine->searchTransactions();
 
         return $result->getCollection();
+    }
+
+    /**
+     * Parse a trigger_value into an array of individual values.
+     * JSON arrays yield multiple values; plain strings yield a single value.
+     */
+    private function parseTriggerValues(string $triggerValue, string $triggerType): array
+    {
+        $decoded = json_decode($triggerValue, true);
+        if (is_array($decoded) && count($decoded) > 0) {
+            return array_values($decoded);
+        }
+
+        return [$triggerValue];
+    }
+
+    /**
+     * Generate the cartesian product of multi-value triggers.
+     * Each element in the result is an array of ['type' => ..., 'value' => ...] entries.
+     */
+    private function cartesianProduct(array $multiValueTriggers): array
+    {
+        $result = [[]];
+        foreach ($multiValueTriggers as $trigger) {
+            $newResult = [];
+            foreach ($result as $combo) {
+                foreach ($trigger['values'] as $value) {
+                    $newResult[] = array_merge($combo, [['type' => $trigger['type'], 'value' => $value]]);
+                }
+            }
+            $result = $newResult;
+        }
+
+        return $result;
     }
 
     /**

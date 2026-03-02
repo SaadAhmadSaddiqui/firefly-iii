@@ -157,9 +157,23 @@ class RuleFormRequest extends FormRequest
             foreach ($triggerData as $trigger) {
                 $stopProcessing = $trigger['stop_processing'] ?? '0';
                 $prohibited     = $trigger['prohibited'] ?? '0';
+                $rawValue       = $trigger['value'] ?? '';
+
+                $decoded        = json_decode($rawValue, true);
+                if (is_array($decoded)) {
+                    $decoded = array_values(array_filter($decoded, static fn ($v) => '' !== trim((string) $v)));
+                    if (1 === count($decoded)) {
+                        $rawValue = $decoded[0];
+                    } elseif (count($decoded) > 1) {
+                        $rawValue = json_encode($decoded);
+                    } else {
+                        $rawValue = '';
+                    }
+                }
+
                 $set            = [
                     'type'            => $trigger['type'] ?? 'invalid',
-                    'value'           => $trigger['value'] ?? '',
+                    'value'           => $rawValue,
                     'stop_processing' => 1 === (int) $stopProcessing,
                     'prohibited'      => 1 === (int) $prohibited,
                 ];

@@ -393,25 +393,36 @@ class FireflyValidator extends Validator
      */
     public function validateRuleTriggerValue(string $attribute, ?string $value = null): bool
     {
-        // first, get the index from this string:
         $parts       = explode('.', $attribute);
         $index       = (int) ($parts[1] ?? '0');
-
-        // get the name of the trigger from the data array:
         $triggerType = $this->data['triggers'][$index]['type'] ?? 'invalid';
 
-        // invalid always returns false:
         if ('invalid' === $triggerType) {
             return false;
         }
 
-        // these trigger types need a numerical check:
+        // if value is a JSON array, validate each element individually
+        $decoded = json_decode((string) $value, true);
+        if (is_array($decoded) && count($decoded) > 0) {
+            foreach ($decoded as $singleValue) {
+                if (!$this->validateSingleTriggerValue($triggerType, (string) $singleValue)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        return $this->validateSingleTriggerValue($triggerType, (string) $value);
+    }
+
+    private function validateSingleTriggerValue(string $triggerType, string $value): bool
+    {
         $numerical   = ['amount_less', 'amount_more', 'amount_exactly'];
         if (in_array($triggerType, $numerical, true)) {
             return is_numeric($value);
         }
 
-        // these triggers need just the word "true":
         // TODO create a helper to automatically return these.
         $needTrue    = [
             'reconciled',
@@ -440,7 +451,6 @@ class FireflyValidator extends Validator
             return 'true' === $value;
         }
 
-        // these trigger types need a simple strlen check:
         // TODO create a helper to automatically return these.
         $length      = [
             'source_account_starts',
@@ -468,21 +478,18 @@ class FireflyValidator extends Validator
             return '' !== $value;
         }
 
-        // check if it's an existing account.
         // TODO create a helper to automatically return these.
         if (in_array($triggerType, ['destination_account_id', 'source_account_id'], true)) {
             return is_numeric($value) && (int) $value > 0;
         }
 
-        // check transaction type.
         // TODO create a helper to automatically return these.
         if ('transaction_type' === $triggerType) {
-            $count = TransactionType::where('type', ucfirst((string) $value))->count();
+            $count = TransactionType::where('type', ucfirst($value))->count();
 
             return 1 === $count;
         }
 
-        // if the type is date, then simply try to parse it and throw error when it's bad.
         // TODO create a helper to automatically return these.
         if (in_array($triggerType, ['date_is', 'created_on', 'updated_on', 'date_before', 'date_after'], true)) {
             /** @var ParseDateString $parser */

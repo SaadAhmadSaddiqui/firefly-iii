@@ -20,6 +20,7 @@
 
 /** global: triggerCount, actionCount */
 
+
 $(function () {
     "use strict";
     $(".content-wrapper form input:enabled:visible:first").first().focus().select();
@@ -48,6 +49,11 @@ $(function () {
     $('.test_rule_triggers').click(testRuleTriggers);
     $('.remove-trigger').unbind('click').click(removeTrigger);
     $('.remove-action').unbind('click').click(removeAction);
+
+    // Collect primary + OR values into JSON before form submit.
+    $('form').on('submit', function () {
+        serializeTriggerOrValues();
+    });
 });
 
 function makeRuleStrict() {
@@ -214,11 +220,23 @@ function onAddNewTrigger() {
         updateTriggerInput(target)
     });
 
+    // Bind + OR and remove-OR buttons (unbind first to avoid duplicates).
+    $('.add-or-value').unbind('click').click(function () {
+        addOrValueRow($(this));
+    });
+    $('.remove-or-value').unbind('click').click(function () {
+        $(this).closest('.or-value-row').remove();
+    });
+
     $.each($('.rule-trigger-holder'), function (i, v) {
         var holder = $(v);
         var select = holder.find('select');
         console.log('Trigger updateTriggerInput() for select ' + select);
-        updateTriggerInput(select);
+        try {
+            updateTriggerInput(select);
+        } catch (e) {
+            console.error('Error initializing trigger input:', e);
+        }
     });
     makeRuleStrict();
 }
@@ -319,8 +337,15 @@ function updateTriggerInput(selectList) {
     var inputResult = parent.find(inputQuery);
 
     console.log('Searching for children in this row with query "' + inputQuery + '" resulted in ' + inputResult.length + ' results.');
+
+    try { inputResult.typeahead('destroy'); } catch (e) { /* ignore */ }
     inputResult.prop('disabled', false);
     inputResult.prop('type', 'text');
+    inputResult.removeAttr('placeholder');
+
+    var disableInput = false;
+    var autoCompleteURL = null;
+
     switch (selectList.val()) {
         case 'source_account_starts':
         case 'source_account_ends':
@@ -330,38 +355,31 @@ function updateTriggerInput(selectList) {
         case 'destination_account_ends':
         case 'destination_account_is':
         case 'destination_account_contains':
-            console.log('Select list value is ' + selectList.val() + ', so input needs auto complete.');
-            createAutoComplete(inputResult, 'api/v1/autocomplete/accounts');
+            autoCompleteURL = 'api/v1/autocomplete/accounts';
             break;
         case 'tag_is':
-            console.log('Select list value is ' + selectList.val() + ', so input needs auto complete.');
-            createAutoComplete(inputResult, 'api/v1/autocomplete/tags');
+            autoCompleteURL = 'api/v1/autocomplete/tags';
             break;
         case 'bill_contains':
         case 'bill_ends':
         case 'bill_is':
         case 'bill_starts':
-            console.log('Select list value is ' + selectList.val() + ', so input needs auto complete.');
-            createAutoComplete(inputResult, 'api/v1/autocomplete/bills');
+            autoCompleteURL = 'api/v1/autocomplete/bills';
             break;
         case 'budget_is':
-            console.log('Select list value is ' + selectList.val() + ', so input needs auto complete.');
-            createAutoComplete(inputResult, 'api/v1/autocomplete/budgets');
+            autoCompleteURL = 'api/v1/autocomplete/budgets';
             break;
         case 'category_is':
-            console.log('Select list value is ' + selectList.val() + ', so input needs auto complete.');
-            createAutoComplete(inputResult, 'api/v1/autocomplete/categories');
+            autoCompleteURL = 'api/v1/autocomplete/categories';
             break;
         case 'transaction_type':
-            console.log('Select list value is ' + selectList.val() + ', so input needs auto complete.');
-            createAutoComplete(inputResult, 'api/v1/autocomplete/transaction-types');
+            autoCompleteURL = 'api/v1/autocomplete/transaction-types';
             break;
         case 'description_starts':
         case 'description_ends':
         case 'description_contains':
         case 'description_is':
-            console.log('Select list value is ' + selectList.val() + ', so input needs auto complete.');
-            createAutoComplete(inputResult, 'api/v1/autocomplete/transactions');
+            autoCompleteURL = 'api/v1/autocomplete/transactions';
             break;
         case 'has_no_category':
         case 'no_external_id':
@@ -384,21 +402,16 @@ function updateTriggerInput(selectList) {
         case 'account_is_cash':
         case 'no_external_url':
         case 'any_external_url':
-            console.log('Select list value is ' + selectList.val() + ', so input needs to be disabled.');
-            inputResult.prop('disabled', true);
-            inputResult.typeahead('destroy');
+            disableInput = true;
             break;
         case 'currency_is':
         case 'foreign_currency_is':
-            console.log('Select list value is ' + selectList.val() + ', so input needs auto complete.');
-            createAutoComplete(inputResult, 'api/v1/autocomplete/currencies-with-code');
+            autoCompleteURL = 'api/v1/autocomplete/currencies-with-code';
             break;
         case 'amount_less':
         case 'amount_more':
         case 'amount_exactly':
-            console.log('Set value to type=number');
-            inputResult.prop('type', 'number');
-            inputResult.prop('step', 'any');
+            inputResult.attr('placeholder', 'e.g. 27.00');
             break;
         case 'date_on_day':
         case 'interest_date_on_day':
@@ -409,10 +422,6 @@ function updateTriggerInput(selectList) {
         case 'invoice_date_on_day':
         case 'created_at_on_day':
         case 'updated_at_on_day':
-            inputResult.prop('type', 'number');
-            inputResult.prop('min', '1');
-            inputResult.prop('max', '31');
-            inputResult.prop('step', '1');
             inputResult.attr('placeholder', '1-31');
             break;
         case 'date_on_month':
@@ -424,10 +433,6 @@ function updateTriggerInput(selectList) {
         case 'invoice_date_on_month':
         case 'created_at_on_month':
         case 'updated_at_on_month':
-            inputResult.prop('type', 'number');
-            inputResult.prop('min', '1');
-            inputResult.prop('max', '12');
-            inputResult.prop('step', '1');
             inputResult.attr('placeholder', '1-12');
             break;
         case 'date_on_day_of_week':
@@ -439,17 +444,81 @@ function updateTriggerInput(selectList) {
         case 'invoice_date_on_day_of_week':
         case 'created_at_on_day_of_week':
         case 'updated_at_on_day_of_week':
-            inputResult.prop('type', 'number');
-            inputResult.prop('min', '1');
-            inputResult.prop('max', '7');
-            inputResult.prop('step', '1');
             inputResult.attr('placeholder', '1=Mon, 7=Sun');
             break;
         default:
-            console.log('Select list value is ' + selectList.val() + ', destroy auto complete, do nothing else.');
-            inputResult.typeahead('destroy');
             break;
     }
+
+    if (disableInput) {
+        inputResult.prop('disabled', true);
+        // Also hide the + OR link for disabled triggers.
+        parent.find('.add-or-value').hide();
+        parent.find('.or-values-container').hide();
+        return;
+    }
+
+    parent.find('.add-or-value').show();
+    parent.find('.or-values-container').show();
+
+    if (autoCompleteURL) {
+        createAutoComplete(inputResult, autoCompleteURL);
+        // Also set up autocomplete on any existing OR value inputs.
+        parent.find('.or-value-input').each(function () {
+            createAutoComplete($(this), autoCompleteURL);
+        });
+    } else {
+        try { inputResult.typeahead('destroy'); } catch (e) { /* ignore */ }
+    }
+
+    // Store the autocomplete URL on the row so new OR inputs can pick it up.
+    parent.data('autocomplete-url', autoCompleteURL || '');
+}
+
+/**
+ * Add a new OR-value input row below the trigger value.
+ */
+function addOrValueRow($link) {
+    var $td = $link.closest('td');
+    var $container = $td.find('.or-values-container');
+    var $row = $('<div class="or-value-row" style="display:flex; align-items:center; margin-top:4px; gap:4px;">' +
+        '<span style="font-size:11px; color:#888; flex-shrink:0;">OR</span>' +
+        '<input type="text" class="form-control input-sm or-value-input" autocomplete="off" />' +
+        '<button type="button" class="btn btn-xs btn-danger remove-or-value" title="Remove">&times;</button>' +
+        '</div>');
+    $container.append($row);
+
+    var autoCompleteURL = $td.closest('tr').data('autocomplete-url');
+    if (autoCompleteURL) {
+        createAutoComplete($row.find('.or-value-input'), autoCompleteURL);
+    }
+}
+
+/**
+ * Before form submit / test: gather primary + OR values into JSON on the
+ * hidden primary input so the backend receives a single JSON array.
+ */
+function serializeTriggerOrValues() {
+    $('.rule-trigger-holder').each(function () {
+        var $row = $(this);
+        var $primary = $row.find('.trigger-value-input');
+        if (!$primary.length) return;
+
+        var values = [];
+        var pv = $.trim($primary.val());
+        if (pv !== '') values.push(pv);
+
+        $row.find('.or-value-input').each(function () {
+            var v = $.trim($(this).val());
+            if (v !== '') values.push(v);
+        });
+
+        if (values.length > 1) {
+            $primary.val(JSON.stringify(values));
+        } else if (values.length === 1) {
+            $primary.val(values[0]);
+        }
+    });
 }
 
 /**
@@ -459,7 +528,7 @@ function updateTriggerInput(selectList) {
  */
 function createAutoComplete(input, URL) {
     console.log('Now in createAutoComplete("' + URL + '").');
-    input.typeahead('destroy');
+    try { input.typeahead('destroy'); } catch (e) { /* ignore */ }
 
     // append URL:
     var lastChar      = URL[URL.length - 1];
@@ -520,8 +589,16 @@ function testRuleTriggers() {
     button.html('<span class="fa fa-spin fa-spinner"></span> ' + testRuleTriggersText);
     button.attr('disabled', 'disabled');
 
-    // Serialize all trigger data
+    // Save original values, serialize for submission, then restore UI values.
+    var savedValues = [];
+    $('.rule-trigger-holder .trigger-value-input').each(function () {
+        savedValues.push($(this).val());
+    });
+    serializeTriggerOrValues();
     var triggerData = $('.content').find("#ffInput_strict, .rule-trigger-tbody input[type=text], .rule-trigger-tbody input[type=number], .rule-trigger-tbody input[type=checkbox], .rule-trigger-tbody select").serializeArray();
+    $('.rule-trigger-holder .trigger-value-input').each(function (i) {
+        if (i < savedValues.length) $(this).val(savedValues[i]);
+    });
 
     console.log('Found the following trigger data: ');
     console.log(triggerData);
