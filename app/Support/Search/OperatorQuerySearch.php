@@ -2483,6 +2483,42 @@ class OperatorQuerySearch implements SearchInterface
 
                 return false;
 
+            case 'date_on_day':
+                $this->collector->dayIs($value);
+                $this->operators->push(['type' => 'date_on_day', 'value' => $value]);
+
+                return false;
+
+            case '-date_on_day':
+                $this->collector->dayIsNot($value);
+                $this->operators->push(['type' => 'not_date_on_day', 'value' => $value]);
+
+                return false;
+
+            case 'date_on_month':
+                $this->collector->monthIs($value);
+                $this->operators->push(['type' => 'date_on_month', 'value' => $value]);
+
+                return false;
+
+            case '-date_on_month':
+                $this->collector->monthIsNot($value);
+                $this->operators->push(['type' => 'not_date_on_month', 'value' => $value]);
+
+                return false;
+
+            case 'date_on_day_of_week':
+                $this->collector->dayOfWeekIs($value);
+                $this->operators->push(['type' => 'date_on_day_of_week', 'value' => $value]);
+
+                return false;
+
+            case '-date_on_day_of_week':
+                $this->collector->dayOfWeekIsNot($value);
+                $this->operators->push(['type' => 'not_date_on_day_of_week', 'value' => $value]);
+
+                return false;
+
             case 'interest_date_on':
             case '-interest_date_on':
                 $range                   = $this->parseDateRange($operator, $value);
@@ -2501,6 +2537,42 @@ class OperatorQuerySearch implements SearchInterface
             case '-interest_date_before':
                 $range                   = $this->parseDateRange($operator, $value);
                 $this->setMetaDateAfterParams('interest_date', $range);
+
+                return false;
+
+            case 'interest_date_on_day':
+                $this->collector->metaDayIs($value, 'interest_date');
+                $this->operators->push(['type' => 'interest_date_on_day', 'value' => $value]);
+
+                return false;
+
+            case '-interest_date_on_day':
+                $this->collector->metaDayIsNot($value, 'interest_date');
+                $this->operators->push(['type' => 'not_interest_date_on_day', 'value' => $value]);
+
+                return false;
+
+            case 'interest_date_on_month':
+                $this->collector->metaMonthIs($value, 'interest_date');
+                $this->operators->push(['type' => 'interest_date_on_month', 'value' => $value]);
+
+                return false;
+
+            case '-interest_date_on_month':
+                $this->collector->metaMonthIsNot($value, 'interest_date');
+                $this->operators->push(['type' => 'not_interest_date_on_month', 'value' => $value]);
+
+                return false;
+
+            case 'interest_date_on_day_of_week':
+                $this->collector->metaDayOfWeekIs($value, 'interest_date');
+                $this->operators->push(['type' => 'interest_date_on_day_of_week', 'value' => $value]);
+
+                return false;
+
+            case '-interest_date_on_day_of_week':
+                $this->collector->metaDayOfWeekIsNot($value, 'interest_date');
+                $this->operators->push(['type' => 'not_interest_date_on_day_of_week', 'value' => $value]);
 
                 return false;
 
@@ -2525,6 +2597,42 @@ class OperatorQuerySearch implements SearchInterface
 
                 return false;
 
+            case 'book_date_on_day':
+                $this->collector->metaDayIs($value, 'book_date');
+                $this->operators->push(['type' => 'book_date_on_day', 'value' => $value]);
+
+                return false;
+
+            case '-book_date_on_day':
+                $this->collector->metaDayIsNot($value, 'book_date');
+                $this->operators->push(['type' => 'not_book_date_on_day', 'value' => $value]);
+
+                return false;
+
+            case 'book_date_on_month':
+                $this->collector->metaMonthIs($value, 'book_date');
+                $this->operators->push(['type' => 'book_date_on_month', 'value' => $value]);
+
+                return false;
+
+            case '-book_date_on_month':
+                $this->collector->metaMonthIsNot($value, 'book_date');
+                $this->operators->push(['type' => 'not_book_date_on_month', 'value' => $value]);
+
+                return false;
+
+            case 'book_date_on_day_of_week':
+                $this->collector->metaDayOfWeekIs($value, 'book_date');
+                $this->operators->push(['type' => 'book_date_on_day_of_week', 'value' => $value]);
+
+                return false;
+
+            case '-book_date_on_day_of_week':
+                $this->collector->metaDayOfWeekIsNot($value, 'book_date');
+                $this->operators->push(['type' => 'not_book_date_on_day_of_week', 'value' => $value]);
+
+                return false;
+
             case 'process_date_on':
             case '-process_date_on':
                 $range                   = $this->parseDateRange($operator, $value);
@@ -2543,6 +2651,42 @@ class OperatorQuerySearch implements SearchInterface
             case '-process_date_before':
                 $range                   = $this->parseDateRange($operator, $value);
                 $this->setMetaDateAfterParams('process_date', $range);
+
+                return false;
+
+            case 'process_date_on_day':
+                $this->collector->metaDayIs($value, 'process_date');
+                $this->operators->push(['type' => 'process_date_on_day', 'value' => $value]);
+
+                return false;
+
+            case '-process_date_on_day':
+                $this->collector->metaDayIsNot($value, 'process_date');
+                $this->operators->push(['type' => 'not_process_date_on_day', 'value' => $value]);
+
+                return false;
+
+            case 'process_date_on_month':
+                $this->collector->metaMonthIs($value, 'process_date');
+                $this->operators->push(['type' => 'process_date_on_month', 'value' => $value]);
+
+                return false;
+
+            case '-process_date_on_month':
+                $this->collector->metaMonthIsNot($value, 'process_date');
+                $this->operators->push(['type' => 'not_process_date_on_month', 'value' => $value]);
+
+                return false;
+
+            case 'process_date_on_day_of_week':
+                $this->collector->metaDayOfWeekIs($value, 'process_date');
+                $this->operators->push(['type' => 'process_date_on_day_of_week', 'value' => $value]);
+
+                return false;
+
+            case '-process_date_on_day_of_week':
+                $this->collector->metaDayOfWeekIsNot($value, 'process_date');
+                $this->operators->push(['type' => 'not_process_date_on_day_of_week', 'value' => $value]);
 
                 return false;
 
@@ -2567,6 +2711,42 @@ class OperatorQuerySearch implements SearchInterface
 
                 return false;
 
+            case 'due_date_on_day':
+                $this->collector->metaDayIs($value, 'due_date');
+                $this->operators->push(['type' => 'due_date_on_day', 'value' => $value]);
+
+                return false;
+
+            case '-due_date_on_day':
+                $this->collector->metaDayIsNot($value, 'due_date');
+                $this->operators->push(['type' => 'not_due_date_on_day', 'value' => $value]);
+
+                return false;
+
+            case 'due_date_on_month':
+                $this->collector->metaMonthIs($value, 'due_date');
+                $this->operators->push(['type' => 'due_date_on_month', 'value' => $value]);
+
+                return false;
+
+            case '-due_date_on_month':
+                $this->collector->metaMonthIsNot($value, 'due_date');
+                $this->operators->push(['type' => 'not_due_date_on_month', 'value' => $value]);
+
+                return false;
+
+            case 'due_date_on_day_of_week':
+                $this->collector->metaDayOfWeekIs($value, 'due_date');
+                $this->operators->push(['type' => 'due_date_on_day_of_week', 'value' => $value]);
+
+                return false;
+
+            case '-due_date_on_day_of_week':
+                $this->collector->metaDayOfWeekIsNot($value, 'due_date');
+                $this->operators->push(['type' => 'not_due_date_on_day_of_week', 'value' => $value]);
+
+                return false;
+
             case 'payment_date_on':
             case '-payment_date_on':
                 $range                   = $this->parseDateRange($operator, $value);
@@ -2588,6 +2768,42 @@ class OperatorQuerySearch implements SearchInterface
 
                 return false;
 
+            case 'payment_date_on_day':
+                $this->collector->metaDayIs($value, 'payment_date');
+                $this->operators->push(['type' => 'payment_date_on_day', 'value' => $value]);
+
+                return false;
+
+            case '-payment_date_on_day':
+                $this->collector->metaDayIsNot($value, 'payment_date');
+                $this->operators->push(['type' => 'not_payment_date_on_day', 'value' => $value]);
+
+                return false;
+
+            case 'payment_date_on_month':
+                $this->collector->metaMonthIs($value, 'payment_date');
+                $this->operators->push(['type' => 'payment_date_on_month', 'value' => $value]);
+
+                return false;
+
+            case '-payment_date_on_month':
+                $this->collector->metaMonthIsNot($value, 'payment_date');
+                $this->operators->push(['type' => 'not_payment_date_on_month', 'value' => $value]);
+
+                return false;
+
+            case 'payment_date_on_day_of_week':
+                $this->collector->metaDayOfWeekIs($value, 'payment_date');
+                $this->operators->push(['type' => 'payment_date_on_day_of_week', 'value' => $value]);
+
+                return false;
+
+            case '-payment_date_on_day_of_week':
+                $this->collector->metaDayOfWeekIsNot($value, 'payment_date');
+                $this->operators->push(['type' => 'not_payment_date_on_day_of_week', 'value' => $value]);
+
+                return false;
+
             case 'invoice_date_on':
             case '-invoice_date_on':
                 $range                   = $this->parseDateRange($operator, $value);
@@ -2606,6 +2822,42 @@ class OperatorQuerySearch implements SearchInterface
             case '-invoice_date_before':
                 $range                   = $this->parseDateRange($operator, $value);
                 $this->setMetaDateAfterParams('invoice_date', $range);
+
+                return false;
+
+            case 'invoice_date_on_day':
+                $this->collector->metaDayIs($value, 'invoice_date');
+                $this->operators->push(['type' => 'invoice_date_on_day', 'value' => $value]);
+
+                return false;
+
+            case '-invoice_date_on_day':
+                $this->collector->metaDayIsNot($value, 'invoice_date');
+                $this->operators->push(['type' => 'not_invoice_date_on_day', 'value' => $value]);
+
+                return false;
+
+            case 'invoice_date_on_month':
+                $this->collector->metaMonthIs($value, 'invoice_date');
+                $this->operators->push(['type' => 'invoice_date_on_month', 'value' => $value]);
+
+                return false;
+
+            case '-invoice_date_on_month':
+                $this->collector->metaMonthIsNot($value, 'invoice_date');
+                $this->operators->push(['type' => 'not_invoice_date_on_month', 'value' => $value]);
+
+                return false;
+
+            case 'invoice_date_on_day_of_week':
+                $this->collector->metaDayOfWeekIs($value, 'invoice_date');
+                $this->operators->push(['type' => 'invoice_date_on_day_of_week', 'value' => $value]);
+
+                return false;
+
+            case '-invoice_date_on_day_of_week':
+                $this->collector->metaDayOfWeekIsNot($value, 'invoice_date');
+                $this->operators->push(['type' => 'not_invoice_date_on_day_of_week', 'value' => $value]);
 
                 return false;
 
@@ -2633,6 +2885,42 @@ class OperatorQuerySearch implements SearchInterface
 
                 return false;
 
+            case 'created_at_on_day':
+                $this->collector->objectDayIs($value, 'created_at');
+                $this->operators->push(['type' => 'created_at_on_day', 'value' => $value]);
+
+                return false;
+
+            case '-created_at_on_day':
+                $this->collector->objectDayIsNot($value, 'created_at');
+                $this->operators->push(['type' => 'not_created_at_on_day', 'value' => $value]);
+
+                return false;
+
+            case 'created_at_on_month':
+                $this->collector->objectMonthIs($value, 'created_at');
+                $this->operators->push(['type' => 'created_at_on_month', 'value' => $value]);
+
+                return false;
+
+            case '-created_at_on_month':
+                $this->collector->objectMonthIsNot($value, 'created_at');
+                $this->operators->push(['type' => 'not_created_at_on_month', 'value' => $value]);
+
+                return false;
+
+            case 'created_at_on_day_of_week':
+                $this->collector->objectDayOfWeekIs($value, 'created_at');
+                $this->operators->push(['type' => 'created_at_on_day_of_week', 'value' => $value]);
+
+                return false;
+
+            case '-created_at_on_day_of_week':
+                $this->collector->objectDayOfWeekIsNot($value, 'created_at');
+                $this->operators->push(['type' => 'not_created_at_on_day_of_week', 'value' => $value]);
+
+                return false;
+
             case 'updated_at_on':
             case '-updated_at_on':
                 Log::debug(sprintf('Set "%s" using collector with value "%s"', $operator, $value));
@@ -2654,6 +2942,42 @@ class OperatorQuerySearch implements SearchInterface
                 Log::debug(sprintf('Set "%s" using collector with value "%s"', $operator, $value));
                 $range                   = $this->parseDateRange($operator, $value);
                 $this->setObjectDateAfterParams('updated_at', $range);
+
+                return false;
+
+            case 'updated_at_on_day':
+                $this->collector->objectDayIs($value, 'updated_at');
+                $this->operators->push(['type' => 'updated_at_on_day', 'value' => $value]);
+
+                return false;
+
+            case '-updated_at_on_day':
+                $this->collector->objectDayIsNot($value, 'updated_at');
+                $this->operators->push(['type' => 'not_updated_at_on_day', 'value' => $value]);
+
+                return false;
+
+            case 'updated_at_on_month':
+                $this->collector->objectMonthIs($value, 'updated_at');
+                $this->operators->push(['type' => 'updated_at_on_month', 'value' => $value]);
+
+                return false;
+
+            case '-updated_at_on_month':
+                $this->collector->objectMonthIsNot($value, 'updated_at');
+                $this->operators->push(['type' => 'not_updated_at_on_month', 'value' => $value]);
+
+                return false;
+
+            case 'updated_at_on_day_of_week':
+                $this->collector->objectDayOfWeekIs($value, 'updated_at');
+                $this->operators->push(['type' => 'updated_at_on_day_of_week', 'value' => $value]);
+
+                return false;
+
+            case '-updated_at_on_day_of_week':
+                $this->collector->objectDayOfWeekIsNot($value, 'updated_at');
+                $this->operators->push(['type' => 'not_updated_at_on_day_of_week', 'value' => $value]);
 
                 return false;
 

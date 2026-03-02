@@ -400,6 +400,51 @@ function updateTriggerInput(selectList) {
             inputResult.prop('type', 'number');
             inputResult.prop('step', 'any');
             break;
+        case 'date_on_day':
+        case 'interest_date_on_day':
+        case 'book_date_on_day':
+        case 'process_date_on_day':
+        case 'due_date_on_day':
+        case 'payment_date_on_day':
+        case 'invoice_date_on_day':
+        case 'created_at_on_day':
+        case 'updated_at_on_day':
+            inputResult.prop('type', 'number');
+            inputResult.prop('min', '1');
+            inputResult.prop('max', '31');
+            inputResult.prop('step', '1');
+            inputResult.attr('placeholder', '1-31');
+            break;
+        case 'date_on_month':
+        case 'interest_date_on_month':
+        case 'book_date_on_month':
+        case 'process_date_on_month':
+        case 'due_date_on_month':
+        case 'payment_date_on_month':
+        case 'invoice_date_on_month':
+        case 'created_at_on_month':
+        case 'updated_at_on_month':
+            inputResult.prop('type', 'number');
+            inputResult.prop('min', '1');
+            inputResult.prop('max', '12');
+            inputResult.prop('step', '1');
+            inputResult.attr('placeholder', '1-12');
+            break;
+        case 'date_on_day_of_week':
+        case 'interest_date_on_day_of_week':
+        case 'book_date_on_day_of_week':
+        case 'process_date_on_day_of_week':
+        case 'due_date_on_day_of_week':
+        case 'payment_date_on_day_of_week':
+        case 'invoice_date_on_day_of_week':
+        case 'created_at_on_day_of_week':
+        case 'updated_at_on_day_of_week':
+            inputResult.prop('type', 'number');
+            inputResult.prop('min', '1');
+            inputResult.prop('max', '7');
+            inputResult.prop('step', '1');
+            inputResult.attr('placeholder', '1=Mon, 7=Sun');
+            break;
         default:
             console.log('Select list value is ' + selectList.val() + ', destroy auto complete, do nothing else.');
             inputResult.typeahead('destroy');

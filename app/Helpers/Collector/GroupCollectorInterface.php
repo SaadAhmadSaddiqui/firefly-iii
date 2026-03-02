@@ -100,6 +100,10 @@ interface GroupCollectorInterface
 
     public function dayIsNot(string $day): self;
 
+    public function dayOfWeekIs(string $dayOfWeek): self;
+
+    public function dayOfWeekIsNot(string $dayOfWeek): self;
+
     /**
      * End of the description must not match:
      */
@@ -330,6 +334,10 @@ interface GroupCollectorInterface
 
     public function metaDayIsNot(string $day, string $field): self;
 
+    public function metaDayOfWeekIs(string $dayOfWeek, string $field): self;
+
+    public function metaDayOfWeekIsNot(string $dayOfWeek, string $field): self;
+
     public function metaMonthAfter(string $month, string $field): self;
 
     public function metaMonthBefore(string $month, string $field): self;
@@ -377,6 +385,10 @@ interface GroupCollectorInterface
     public function objectDayIs(string $day, string $field): self;
 
     public function objectDayIsNot(string $day, string $field): self;
+
+    public function objectDayOfWeekIs(string $dayOfWeek, string $field): self;
+
+    public function objectDayOfWeekIsNot(string $dayOfWeek, string $field): self;
 
     public function objectMonthAfter(string $month, string $field): self;
 
