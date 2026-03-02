@@ -48,7 +48,7 @@ use Illuminate\Http\Middleware\ValidatePostSize;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Laravel\Passport\Http\Middleware\CreateFreshApiToken;
 use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
-use PragmaRX\Google2FALaravel\Middleware as MFAMiddleware;
+use FireflyIII\Http\Middleware\TwoFactorAuth as MFAMiddleware;
 
 /*
 |--------------------------------------------------------------------------
