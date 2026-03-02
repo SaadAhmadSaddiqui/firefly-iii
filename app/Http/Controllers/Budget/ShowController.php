@@ -37,6 +37,7 @@ use FireflyIII\Repositories\Journal\JournalRepositoryInterface;
 use FireflyIII\Support\Facades\Preferences;
 use FireflyIII\Support\Http\Controllers\AugumentData;
 use FireflyIII\Support\Http\Controllers\PeriodOverview;
+use FireflyIII\Support\Http\Controllers\TransactionFiltering;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -50,6 +51,7 @@ class ShowController extends Controller
 {
     use AugumentData;
     use PeriodOverview;
+    use TransactionFiltering;
 
     protected JournalRepositoryInterface $journalRepos;
     private BudgetRepositoryInterface $repository;
@@ -169,20 +171,32 @@ class ShowController extends Controller
         $repetition  = null;
         $attachments = $this->repository->getAttachments($budget);
 
-        // collector:
-        /** @var GroupCollectorInterface $collector */
-        $collector   = app(GroupCollectorInterface::class);
-        $collector
-            ->setRange($allStart, $allEnd)
-            ->setBudget($budget)
-            ->withAccountInformation()
-            ->setLimit($pageSize)
-            ->setPage($page)
-            ->withBudgetInformation()
-            ->withCategoryInformation()
-        ;
-        $groups      = $collector->getPaginatedGroups();
+        $filters     = $this->getTransactionFilters($request);
+
+        if ($this->hasTransactionFilters($request)) {
+            $budgetName    = str_contains($budget->name, ' ') ? '"' . $budget->name . '"' : $budget->name;
+            $baseOperators = [
+                'budget_is:' . $budgetName,
+                'date_after:' . $allStart->format('Y-m-d'),
+                'date_before:' . $allEnd->format('Y-m-d'),
+            ];
+            $groups        = $this->getFilteredTransactions($request, $page, $pageSize, $baseOperators);
+        } else {
+            /** @var GroupCollectorInterface $collector */
+            $collector = app(GroupCollectorInterface::class);
+            $collector
+                ->setRange($allStart, $allEnd)
+                ->setBudget($budget)
+                ->withAccountInformation()
+                ->setLimit($pageSize)
+                ->setPage($page)
+                ->withBudgetInformation()
+                ->withCategoryInformation()
+            ;
+            $groups    = $collector->getPaginatedGroups();
+        }
         $groups->setPath(route('budgets.show', [$budget->id]));
+        $groups->appends(array_filter($filters));
 
         $subTitle    = (string) trans('firefly.all_journals_for_budget', ['name' => $budget->name]);
 
@@ -193,6 +207,7 @@ class ShowController extends Controller
             'repetition'  => $repetition,
             'groups'      => $groups,
             'subTitle'    => $subTitle,
+            'filters'     => $filters,
         ]);
     }
 
@@ -224,21 +239,32 @@ class ShowController extends Controller
             $currencySymbol = $this->primaryCurrency->symbol;
         }
 
-        // collector:
-        /** @var GroupCollectorInterface $collector */
-        $collector      = app(GroupCollectorInterface::class);
+        $filters        = $this->getTransactionFilters($request);
 
-        $collector
-            ->setRange($budgetLimit->start_date, $budgetLimit->end_date)
-            ->withAccountInformation()
-            ->setBudget($budget)
-            ->setLimit($pageSize)
-            ->setPage($page)
-            ->withBudgetInformation()
-            ->withCategoryInformation()
-        ;
-        $groups         = $collector->getPaginatedGroups();
+        if ($this->hasTransactionFilters($request)) {
+            $budgetName    = str_contains($budget->name, ' ') ? '"' . $budget->name . '"' : $budget->name;
+            $baseOperators = [
+                'budget_is:' . $budgetName,
+                'date_after:' . $budgetLimit->start_date->format('Y-m-d'),
+                'date_before:' . $budgetLimit->end_date->format('Y-m-d'),
+            ];
+            $groups        = $this->getFilteredTransactions($request, $page, $pageSize, $baseOperators);
+        } else {
+            /** @var GroupCollectorInterface $collector */
+            $collector = app(GroupCollectorInterface::class);
+            $collector
+                ->setRange($budgetLimit->start_date, $budgetLimit->end_date)
+                ->withAccountInformation()
+                ->setBudget($budget)
+                ->setLimit($pageSize)
+                ->setPage($page)
+                ->withBudgetInformation()
+                ->withCategoryInformation()
+            ;
+            $groups    = $collector->getPaginatedGroups();
+        }
         $groups->setPath(route('budgets.show.limit', [$budget->id, $budgetLimit->id]));
+        $groups->appends(array_filter($filters));
 
         /** @var Carbon $start */
         $start          = session('first', today(config('app.timezone'))->startOfYear());
@@ -254,6 +280,7 @@ class ShowController extends Controller
             'groups'         => $groups,
             'subTitle'       => $subTitle,
             'currencySymbol' => $currencySymbol,
+            'filters'        => $filters,
         ]);
     }
 }

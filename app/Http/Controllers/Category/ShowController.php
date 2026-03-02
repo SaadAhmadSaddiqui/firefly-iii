@@ -32,6 +32,7 @@ use FireflyIII\Models\Category;
 use FireflyIII\Repositories\Category\CategoryRepositoryInterface;
 use FireflyIII\Support\Facades\Preferences;
 use FireflyIII\Support\Http\Controllers\PeriodOverview;
+use FireflyIII\Support\Http\Controllers\TransactionFiltering;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -45,6 +46,7 @@ use Psr\Container\NotFoundExceptionInterface;
 class ShowController extends Controller
 {
     use PeriodOverview;
+    use TransactionFiltering;
 
     /** @var CategoryRepositoryInterface The category repository */
     private $repository;
@@ -95,20 +97,32 @@ class ShowController extends Controller
             'end'   => $end->isoFormat($this->monthAndDayFormat),
         ]);
 
-        /** @var GroupCollectorInterface $collector */
-        $collector    = app(GroupCollectorInterface::class);
-        $collector
-            ->setRange($start, $end)
-            ->setLimit($pageSize)
-            ->setPage($page)
-            ->withAccountInformation()
-            ->setCategory($category)
-            ->withBudgetInformation()
-            ->withCategoryInformation()
-        ;
+        $filters      = $this->getTransactionFilters($request);
 
-        $groups       = $collector->getPaginatedGroups();
+        if ($this->hasTransactionFilters($request)) {
+            $catName       = str_contains($category->name, ' ') ? '"' . $category->name . '"' : $category->name;
+            $baseOperators = [
+                'category_is:' . $catName,
+                'date_after:' . $start->format('Y-m-d'),
+                'date_before:' . $end->format('Y-m-d'),
+            ];
+            $groups        = $this->getFilteredTransactions($request, $page, $pageSize, $baseOperators);
+        } else {
+            /** @var GroupCollectorInterface $collector */
+            $collector = app(GroupCollectorInterface::class);
+            $collector
+                ->setRange($start, $end)
+                ->setLimit($pageSize)
+                ->setPage($page)
+                ->withAccountInformation()
+                ->setCategory($category)
+                ->withBudgetInformation()
+                ->withCategoryInformation()
+            ;
+            $groups    = $collector->getPaginatedGroups();
+        }
         $groups->setPath($path);
+        $groups->appends(array_filter($filters));
 
         return view('categories.show', [
             'category'     => $category,
@@ -119,6 +133,7 @@ class ShowController extends Controller
             'subTitleIcon' => $subTitleIcon,
             'start'        => $start,
             'end'          => $end,
+            'filters'      => $filters,
         ]);
     }
 
@@ -148,21 +163,28 @@ class ShowController extends Controller
         $end          = today(config('app.timezone'));
         $path         = route('categories.show.all', [$category->id]);
         $attachments  = $this->repository->getAttachments($category);
+        $filters      = $this->getTransactionFilters($request);
 
-        /** @var GroupCollectorInterface $collector */
-        $collector    = app(GroupCollectorInterface::class);
-        $collector
-            ->setRange($start, $end)
-            ->setLimit($pageSize)
-            ->setPage($page)
-            ->withAccountInformation()
-            ->setCategory($category)
-            ->withBudgetInformation()
-            ->withCategoryInformation()
-        ;
-
-        $groups       = $collector->getPaginatedGroups();
+        if ($this->hasTransactionFilters($request)) {
+            $catName       = str_contains($category->name, ' ') ? '"' . $category->name . '"' : $category->name;
+            $baseOperators = ['category_is:' . $catName];
+            $groups        = $this->getFilteredTransactions($request, $page, $pageSize, $baseOperators);
+        } else {
+            /** @var GroupCollectorInterface $collector */
+            $collector = app(GroupCollectorInterface::class);
+            $collector
+                ->setRange($start, $end)
+                ->setLimit($pageSize)
+                ->setPage($page)
+                ->withAccountInformation()
+                ->setCategory($category)
+                ->withBudgetInformation()
+                ->withCategoryInformation()
+            ;
+            $groups    = $collector->getPaginatedGroups();
+        }
         $groups->setPath($path);
+        $groups->appends(array_filter($filters));
 
         return view('categories.show', [
             'category'     => $category,
@@ -173,6 +195,7 @@ class ShowController extends Controller
             'subTitleIcon' => $subTitleIcon,
             'start'        => $start,
             'end'          => $end,
+            'filters'      => $filters,
         ]);
     }
 }

@@ -31,6 +31,7 @@ use FireflyIII\Models\Bill;
 use FireflyIII\Repositories\Bill\BillRepositoryInterface;
 use FireflyIII\Support\Facades\Navigation;
 use FireflyIII\Support\Facades\Preferences;
+use FireflyIII\Support\Http\Controllers\TransactionFiltering;
 use FireflyIII\Support\JsonApi\Enrichments\SubscriptionEnrichment;
 use FireflyIII\TransactionRules\Engine\RuleEngineInterface;
 use FireflyIII\Transformers\AttachmentTransformer;
@@ -54,6 +55,8 @@ use Symfony\Component\HttpFoundation\ParameterBag;
  */
 class ShowController extends Controller
 {
+    use TransactionFiltering;
+
     private BillRepositoryInterface $repository;
 
     /**
@@ -166,11 +169,20 @@ class ShowController extends Controller
         $object                     = $manager->createData($resource)->toArray();
         $object['data']['currency'] = $bill->transactionCurrency;
 
-        /** @var GroupCollectorInterface $collector */
-        $collector                  = app(GroupCollectorInterface::class);
-        $collector->setBill($bill)->setLimit($pageSize)->setPage($page)->withBudgetInformation()->withCategoryInformation()->withAccountInformation();
-        $groups                     = $collector->getPaginatedGroups();
+        $filters                    = $this->getTransactionFilters($request);
+
+        if ($this->hasTransactionFilters($request)) {
+            $billName      = str_contains($bill->name, ' ') ? '"' . $bill->name . '"' : $bill->name;
+            $baseOperators = ['bill_is:' . $billName];
+            $groups        = $this->getFilteredTransactions($request, $page, $pageSize, $baseOperators);
+        } else {
+            /** @var GroupCollectorInterface $collector */
+            $collector = app(GroupCollectorInterface::class);
+            $collector->setBill($bill)->setLimit($pageSize)->setPage($page)->withBudgetInformation()->withCategoryInformation()->withAccountInformation();
+            $groups    = $collector->getPaginatedGroups();
+        }
         $groups->setPath(route('bills.show', [$bill->id]));
+        $groups->appends(array_filter($filters));
 
         // transform any attachments as well.
         $collection                 = $this->repository->getAttachments($bill);
@@ -192,6 +204,7 @@ class ShowController extends Controller
             'object'         => $object,
             'bill'           => $bill,
             'subTitle'       => $subTitle,
+            'filters'        => $filters,
         ]);
     }
 }
