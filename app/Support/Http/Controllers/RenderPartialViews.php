@@ -339,9 +339,12 @@ trait RenderPartialViews
                     if (str_starts_with($rootOperator, '-')) {
                         $rootOperator = substr($rootOperator, 1);
                     }
+                    $decoded           = json_decode((string) $entry->trigger_value, true);
+                    $oldValues         = is_array($decoded) ? $decoded : [$entry->trigger_value];
+
                     $renderedEntries[] = view('rules.partials.trigger', [
                         'oldTrigger'    => $rootOperator,
-                        'oldValue'      => $entry->trigger_value,
+                        'oldValues'     => $oldValues,
                         'oldChecked'    => $entry->stop_processing,
                         'oldProhibited' => str_starts_with((string) $entry->trigger_type, '-'),
                         'count'         => $count,

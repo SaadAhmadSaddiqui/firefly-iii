@@ -87,9 +87,13 @@ trait RuleManagement
         if (is_array($oldInput)) {
             foreach ($oldInput as $oldTrigger) {
                 try {
+                    $rawValue          = $oldTrigger['value'] ?? '';
+                    $decoded           = json_decode($rawValue, true);
+                    $oldValues         = is_array($decoded) ? $decoded : [$rawValue];
+
                     $renderedEntries[] = view('rules.partials.trigger', [
                         'oldTrigger'    => OperatorQuerySearch::getRootOperator($oldTrigger['type']),
-                        'oldValue'      => $oldTrigger['value'] ?? '',
+                        'oldValues'     => $oldValues,
                         'oldChecked'    => 1 === (int) ($oldTrigger['stop_processing'] ?? '0'),
                         'oldProhibited' => 1 === (int) ($oldTrigger['prohibited'] ?? '0'),
                         'count'         => $index + 1,
@@ -130,9 +134,13 @@ trait RuleManagement
             $needsContext = (bool) config(sprintf('search.operators.%s.needs_context', $rootOperator));
 
             try {
+                $rawValue          = $needsContext ? ($operator['value'] ?? '') : '';
+                $decoded           = json_decode($rawValue, true);
+                $oldValues         = is_array($decoded) ? $decoded : [$rawValue];
+
                 $renderedEntries[] = view('rules.partials.trigger', [
                     'oldTrigger'    => $rootOperator,
-                    'oldValue'      => $needsContext ? $operator['value'] : '',
+                    'oldValues'     => $oldValues,
                     'oldChecked'    => false,
                     'oldProhibited' => $operator['prohibited'] ?? false,
                     'count'         => $index + 1,

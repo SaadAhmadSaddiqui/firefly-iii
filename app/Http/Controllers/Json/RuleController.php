@@ -81,7 +81,7 @@ class RuleController extends Controller
         asort($triggers);
 
         try {
-            $view = view('rules.partials.trigger', ['triggers' => $triggers, 'count'    => $count])->render();
+            $view = view('rules.partials.trigger', ['triggers' => $triggers, 'count' => $count, 'oldValues' => []])->render();
         } catch (Throwable $e) {
             Log::error(sprintf('Cannot render rules.partials.trigger: %s', $e->getMessage()));
             Log::error($e->getTraceAsString());

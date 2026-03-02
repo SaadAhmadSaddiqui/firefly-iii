@@ -23,8 +23,21 @@
         </div>
     </td>
     <td>
-        <input autocomplete="off" type="text" value="{{ oldValue }}" name="triggers[{{ count }}][value]"
-               class="form-control">
+        {% set primaryValue = oldValues is defined and oldValues|length > 0 ? oldValues[0] : '' %}
+        {% set orValues = oldValues is defined and oldValues|length > 1 ? oldValues|slice(1) : [] %}
+        <input autocomplete="off" type="text" name="triggers[{{ count }}][value]"
+               class="form-control trigger-value-input"
+               value="{{ primaryValue }}" />
+        <div class="or-values-container">
+            {% for val in orValues %}
+                <div class="or-value-row" style="display:flex; align-items:center; margin-top:4px; gap:4px;">
+                    <span style="font-size:11px; color:#888; flex-shrink:0;">OR</span>
+                    <input type="text" class="form-control input-sm or-value-input" value="{{ val }}" autocomplete="off" />
+                    <button type="button" class="btn btn-xs btn-danger remove-or-value" title="Remove">&times;</button>
+                </div>
+            {% endfor %}
+        </div>
+        <button type="button" class="btn btn-xs btn-default add-or-value" style="font-size:11px; margin-top:4px;">+ OR</button>
         {% if errors.has('triggers.'~count~'.value') %}
             <p class="text-danger">
                 {{ errors.first('triggers.'~count~'.value') }}
