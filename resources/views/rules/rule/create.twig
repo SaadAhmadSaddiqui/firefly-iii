@@ -148,6 +148,7 @@
 {% endblock %}
 {% block scripts %}
     <script type="text/javascript" src="v1/js/lib/typeahead/typeahead.bundle.min.js?v={{ FF_BUILD_TIME }}" nonce="{{ JS_NONCE }}"></script>
+    <script type="text/javascript" src="v1/js/lib/bootstrap-tagsinput.min.js?v={{ FF_BUILD_TIME }}" nonce="{{ JS_NONCE }}"></script>
     <script type="text/javascript" nonce="{{ JS_NONCE }}">
         var triggerCount = {{ triggerCount }};
         var actionCount = {{ actionCount }};
@@ -157,4 +158,5 @@
 
 {% endblock %}
 {% block styles %}
+    <link href="v1/css/bootstrap-tagsinput.css?v={{ FF_BUILD_TIME }}" type="text/css" rel="stylesheet" media="all" nonce="{{ JS_NONCE }}">
 {% endblock %}

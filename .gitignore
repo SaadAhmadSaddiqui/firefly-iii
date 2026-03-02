@@ -33,7 +33,6 @@ public/v2/i18n
 storage/backups/
 
 # ignore budget files
-MARCH_BUDGET_2026.md
 storage/budget-plans/
 
 # ignore transaction files

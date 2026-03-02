@@ -10,7 +10,7 @@ echo "Waiting for database connection..."
 php artisan firefly-iii:verify-database-connection
 
 echo "Running migrations and upgrades..."
-php artisan firefly-iii:upgrade-database --force
+php artisan firefly-iii:upgrade-database
 
 echo "Clearing caches..."
 php artisan cache:clear
