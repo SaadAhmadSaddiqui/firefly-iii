@@ -1737,6 +1737,7 @@ return [
     'export_data_advanced_expl'                           => 'If you need a more advanced or specific type of export, read the help on how to use the console command <code>php artisan help firefly-iii:export-data</code>.',
 
     // backup and restore:
+    'budget_planner'                                      => 'Budget Planner',
     'backup_title'                                        => 'Backup & Restore',
     'backup_menu'                                         => 'Backup & Restore',
     'backup_bc'                                           => 'Backup & Restore',

@@ -58,12 +58,48 @@ services:
     depends_on:
       - app
 
+  #
+  # Ollama -- local LLM for the Budget Planner.
+  # Models are persisted in a volume so they only download once.
+  # Set BUDGET_LLM_MODEL in .env to choose which model to auto-pull (default: llama3.1).
+  # The app connects via http://ollama:11434 on the internal Docker network.
+  #
+  ollama:
+    image: ollama/ollama:latest
+    hostname: ollama
+    container_name: firefly_iii_ollama
+    restart: always
+    volumes:
+      - firefly_iii_ollama:/root/.ollama
+    networks:
+      - firefly_iii
+    ports:
+      - "11434:11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: firefly_iii_ollama_pull
+    restart: "no"
+    entrypoint: ["sh", "-c", "OLLAMA_HOST=http://ollama:11434 ollama pull ${BUDGET_LLM_MODEL:-llama3.1}"]
+    networks:
+      - firefly_iii
+    depends_on:
+      ollama:
+        condition: service_healthy
+
 volumes:
    firefly_iii_upload:
    firefly_iii_vendor:
    firefly_iii_public_build:
    firefly_iii_public_v1:
    firefly_iii_db:
+   firefly_iii_ollama:
 networks:
   firefly_iii:
     driver: bridge

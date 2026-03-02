@@ -1,26 +1,178 @@
 {% extends './layout/default' %}
 
+{% block styles %}
+    <style nonce="{{ JS_NONCE }}">
+        .bp-chat-container {
+            border: 1px solid rgba(128,128,128,0.25);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            background: #fff;
+        }
+        .bp-chat-header {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: #e0e0e0;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 14px;
+        }
+        .bp-chat-header .bp-title { display: flex; align-items: center; gap: 8px; }
+        .bp-chat-header .bp-badge {
+            font-size: 11px; padding: 2px 8px; border-radius: 10px;
+            background: rgba(255,255,255,0.15); color: #a5b4c3;
+        }
+        .bp-chat-header .bp-badge.ready { background: #166534; color: #86efac; }
+        .bp-chat-toggle { background: none; border: 1px solid rgba(255,255,255,0.25); color: #ccc; border-radius: 4px; padding: 3px 10px; cursor: pointer; font-size: 12px; }
+        .bp-chat-toggle:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+        .bp-chat-settings { padding: 10px 16px; background: #f5f5f5; border-bottom: 1px solid rgba(128,128,128,0.15); display: none; }
+        .bp-chat-settings label { font-size: 12px; color: #666; margin-bottom: 2px; display: block; }
+        .bp-chat-settings input, .bp-chat-settings select { font-size: 13px; }
+
+        .bp-chat-messages {
+            max-height: 420px; overflow-y: auto; padding: 16px;
+            background: #fafafa; min-height: 80px;
+        }
+        .bp-msg { margin-bottom: 12px; display: flex; gap: 8px; }
+        .bp-msg.user { flex-direction: row-reverse; }
+        .bp-avatar {
+            width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center; font-size: 12px; color: #fff;
+        }
+        .bp-avatar.ai { background: linear-gradient(135deg, #a78bfa, #818cf8); }
+        .bp-avatar.human { background: #3b82f6; }
+        .bp-bubble {
+            max-width: 80%; padding: 8px 14px; border-radius: 14px; font-size: 13px; line-height: 1.5;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+        }
+        .bp-msg.user .bp-bubble { background: #3b82f6; color: #fff; border-bottom-right-radius: 4px; }
+        .bp-msg.bot .bp-bubble { background: #fff; color: #1a1a2e; border: 1px solid #e5e7eb; border-bottom-left-radius: 4px; }
+        .bp-msg.bot .bp-bubble.error { border-color: #fca5a5; background: #fef2f2; color: #991b1b; }
+
+        .bp-status { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+        .bp-spinner { width: 12px; height: 12px; border: 2px solid #d1d5db; border-top-color: #3b82f6; border-radius: 50%; animation: bp-spin 0.6s linear infinite; }
+        @keyframes bp-spin { to { transform: rotate(360deg); } }
+        .bp-cursor { animation: bp-blink 0.7s step-end infinite; font-weight: bold; color: #a78bfa; }
+        @keyframes bp-blink { 50% { opacity: 0; } }
+
+        .bp-empty { text-align: center; color: #999; padding: 10px 0; font-size: 13px; }
+        .bp-prompts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 8px; }
+        .bp-prompts button { font-size: 11px; padding: 4px 12px; border-radius: 20px; border: 1px solid #ccc; background: #fff; cursor: pointer; color: #555; }
+        .bp-prompts button:hover { background: #f0f0f0; border-color: #999; }
+
+        .bp-chat-input {
+            display: flex; gap: 8px; padding: 10px 16px; border-top: 1px solid #e5e7eb; background: #fff; align-items: flex-end;
+        }
+        .bp-chat-input textarea {
+            flex: 1; border: 1px solid #e0e0e0; border-radius: 10px; padding: 8px 12px;
+            font-size: 13px; resize: none; outline: none; min-height: 38px; max-height: 80px;
+            font-family: inherit; background: #f8f9fa;
+        }
+        .bp-chat-input textarea:focus { border-color: #3b82f6; background: #fff; }
+        .bp-chat-input .bp-send {
+            width: 36px; height: 36px; border-radius: 50%; border: none; background: #3b82f6; color: #fff;
+            cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .bp-chat-input .bp-send:disabled { background: #ccc; cursor: not-allowed; }
+        .bp-chat-input .bp-send:hover:not(:disabled) { background: #2563eb; }
+
+        .bp-save-bar {
+            display: none; padding: 8px 16px; background: #f0fdf4; border-top: 1px solid #bbf7d0;
+            align-items: center; gap: 8px; font-size: 13px;
+        }
+        .bp-save-bar .bp-save-buttons { margin-left: auto; display: flex; gap: 6px; }
+
+        .bp-footer { text-align: center; padding: 4px; font-size: 11px; color: #aaa; }
+
+        .bp-chat-messages::-webkit-scrollbar { width: 5px; }
+        .bp-chat-messages::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+    </style>
+{% endblock %}
+
 {% block content %}
-    {% if plans|length == 0 %}
-        <div class="row">
-            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
-                <div class="box">
-                    <div class="box-header with-border">
-                        <h3 class="box-title">No Budget Plans</h3>
+    <div class="row">
+        <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+
+            {# ── Chat box ── #}
+            <div class="bp-chat-container" id="bpChat">
+                <div class="bp-chat-header">
+                    <div class="bp-title">
+                        <em class="fa fa-magic"></em>
+                        <span>Budget Planner</span>
+                        <span class="bp-badge ready" id="bpBadge">{{ llmBackend }} ready</span>
                     </div>
-                    <div class="box-body">
-                        <p>No budget plan files found. Place <code>.md</code> files in <code>storage/budget-plans/</code> to view them here.</p>
+                    <button class="bp-chat-toggle" onclick="$('#bpSettings').slideToggle(150)"><em class="fa fa-cog"></em></button>
+                </div>
+
+                <div class="bp-chat-settings" id="bpSettings">
+                    <div class="row">
+                        <div class="col-xs-2">
+                            <label>Months</label>
+                            <input type="number" class="form-control input-sm" id="bpMonths" value="3" min="1" max="24">
+                        </div>
+                        <div class="col-xs-3">
+                            <label>Monthly Salary</label>
+                            <input type="number" class="form-control input-sm" id="bpSalary" placeholder="e.g. 25724" step="0.01">
+                        </div>
+                        <div class="col-xs-2">
+                            <label>Currency</label>
+                            <input type="text" class="form-control input-sm" id="bpCurrency" value="{{ llmCurrency }}" maxlength="5">
+                        </div>
+                        <div class="col-xs-3">
+                            <label>Plan Name</label>
+                            <input type="text" class="form-control input-sm" id="bpPlanName" value="">
+                        </div>
+                        <div class="col-xs-2">
+                            <label>Backend</label>
+                            <select class="form-control input-sm" id="bpBackend">
+                                <option value="ollama" {% if llmBackend == 'ollama' %}selected{% endif %}>Ollama</option>
+                                <option value="gemini" {% if llmBackend == 'gemini' %}selected{% endif %}>Gemini</option>
+                                <option value="groq" {% if llmBackend == 'groq' %}selected{% endif %}>Groq</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    {% else %}
-        <div class="row">
-            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
-                <div class="box box-primary">
-                    <div class="box-header with-border">
-                        <h3 class="box-title"><em class="fa fa-book fa-fw"></em> Monthly Budget Plans</h3>
+
+                <div class="bp-chat-messages" id="bpMessages">
+                    <div class="bp-empty" id="bpEmpty">
+                        <em class="fa fa-magic" style="font-size: 24px; color: #a78bfa; display: block; margin-bottom: 6px;"></em>
+                        Describe your goals and financial context, then hit Enter.
+                        <div class="bp-prompts">
+                            <button onclick="bpSetInput('Bank balance 25,945. Cash 2,800. All CCs cleared. Rent (14,500 quarterly) due this month. Goals: build emergency fund, spend under salary.')">Financial snapshot</button>
+                            <button onclick="bpSetInput('Tight month. Cut 40%. Essentials only. No shopping, no dining out.')">Tight month</button>
+                            <button onclick="bpSetInput('Save 5,000 this month for emergency fund. Where can I cut?')">Savings goal</button>
+                        </div>
                     </div>
+                </div>
+
+                <div class="bp-save-bar" id="bpSaveBar">
+                    <em class="fa fa-check-circle text-success"></em>
+                    <span class="text-success">Plan generated</span>
+                    <div class="bp-save-buttons">
+                        <button class="btn btn-success btn-xs" onclick="bpSave(false)" id="bpSaveBtn"><em class="fa fa-floppy-o"></em> Save</button>
+                        <button class="btn btn-primary btn-xs" onclick="bpSave(true)" id="bpPushBtn"><em class="fa fa-cloud-upload"></em> Save &amp; Push to Drive</button>
+                    </div>
+                </div>
+
+                <div class="bp-chat-input">
+                    <textarea id="bpInput" placeholder="Describe your financial situation, goals, context..." rows="1"></textarea>
+                    <button class="bp-send" id="bpSendBtn" onclick="bpSend()" disabled><em class="fa fa-paper-plane"></em></button>
+                </div>
+                <div class="bp-footer">Free &middot; {{ llmBackend }} &middot; Enter to generate, Shift+Enter for newline</div>
+            </div>
+
+            {# ── Plan list ── #}
+            <div class="box box-primary" id="bpPlanList">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><em class="fa fa-book fa-fw"></em> Monthly Budget Plans</h3>
+                </div>
+                {% if plans|length == 0 %}
+                    <div class="box-body">
+                        <p class="text-muted">No budget plans yet. Generate one above, or place <code>.md</code> files in <code>storage/budget-plans/</code>.</p>
+                    </div>
+                {% else %}
                     <div class="box-body no-padding">
                         <table class="table table-striped table-hover">
                             <thead>
@@ -30,7 +182,7 @@
                                     <th class="text-right">Size</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="bpPlanTbody">
                                 {% for plan in plans %}
                                     <tr>
                                         <td>
@@ -40,16 +192,269 @@
                                             </a>
                                         </td>
                                         <td>{{ plan.modified }}</td>
-                                        <td class="text-right">
-                                            {{ (plan.size / 1024)|number_format(1) }} KB
-                                        </td>
+                                        <td class="text-right">{{ (plan.size / 1024)|number_format(1) }} KB</td>
                                     </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
-                </div>
+                {% endif %}
             </div>
+
         </div>
-    {% endif %}
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script type="text/javascript" nonce="{{ JS_NONCE }}">
+(function() {
+    var generating = false;
+    var generatedContent = '';
+    var csrfToken = $('meta[name="csrf-token"]').attr('content');
+
+    // auto plan name
+    var now = new Date();
+    var next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    var months = ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
+    $('#bpPlanName').val(months[next.getMonth()] + '_BUDGET_' + next.getFullYear());
+
+    // input handling
+    var $input = $('#bpInput');
+    var $sendBtn = $('#bpSendBtn');
+
+    $input.on('input', function() { $sendBtn.prop('disabled', !this.value.trim() || generating); });
+    $input.on('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (this.value.trim() && !generating) bpSend();
+        }
+    });
+
+    window.bpSetInput = function(text) {
+        $input.val(text).trigger('input').focus();
+    };
+
+    window.bpSend = function() {
+        var text = $input.val().trim();
+        if (!text || generating) return;
+        $input.val('');
+        $sendBtn.prop('disabled', true);
+        generating = true;
+        generatedContent = '';
+        $('#bpSaveBar').hide();
+        $('#bpEmpty').hide();
+
+        addMsg('user', text);
+        doGenerate(text);
+    };
+
+    function addMsg(role, html, extra) {
+        var cls = role === 'user' ? 'user' : 'bot';
+        var avCls = role === 'user' ? 'human' : 'ai';
+        var icon = role === 'user' ? 'fa-user' : 'fa-magic';
+        var id = extra && extra.id ? ' id="' + extra.id + '"' : '';
+        var bubbleCls = extra && extra.error ? ' error' : '';
+
+        var m = '<div class="bp-msg ' + cls + '"' + id + '>' +
+            '<div class="bp-avatar ' + avCls + '"><em class="fa ' + icon + '"></em></div>' +
+            '<div class="bp-bubble' + bubbleCls + '">' + html + '</div></div>';
+        $('#bpMessages').append(m);
+        scrollBottom();
+    }
+
+    function scrollBottom() {
+        var el = document.getElementById('bpMessages');
+        if (el) el.scrollTop = el.scrollHeight;
+    }
+
+    function doGenerate(message) {
+        var params = new URLSearchParams();
+        params.append('message', message);
+        params.append('months', $('#bpMonths').val());
+        params.append('salary', $('#bpSalary').val() || '');
+        params.append('currency', $('#bpCurrency').val());
+        params.append('_token', csrfToken);
+
+        var streamId = 'bp-stream-' + Date.now();
+        var fullText = '';
+        var currentEvent = '';
+
+        fetch('{{ route("budget-plans.generate") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'text/event-stream'
+            },
+            body: params.toString()
+        }).then(function(response) {
+            if (!response.ok) throw new Error('Server error: ' + response.status);
+            var reader = response.body.getReader();
+            var decoder = new TextDecoder();
+            var buffer = '';
+
+            function read() {
+                reader.read().then(function(result) {
+                    if (result.done) { finish(); return; }
+                    buffer += decoder.decode(result.value, { stream: true });
+                    var lines = buffer.split('\n');
+                    buffer = lines.pop();
+
+                    for (var i = 0; i < lines.length; i++) {
+                        var line = lines[i];
+                        if (line.indexOf('event: ') === 0) {
+                            currentEvent = line.substring(7).trim();
+                        }
+                        if (line.indexOf('data: ') === 0) {
+                            try { var data = JSON.parse(line.substring(6)); } catch(e) { continue; }
+                            handleEvent(currentEvent, data, streamId);
+                            if (currentEvent === 'chunk') fullText += data.text;
+                            if (currentEvent === 'done') fullText = data.text;
+                        }
+                    }
+                    read();
+                }).catch(function(err) {
+                    addMsg('bot', '<em class="fa fa-exclamation-circle"></em> ' + err.message, { error: true });
+                    finish();
+                });
+            }
+            read();
+        }).catch(function(err) {
+            addMsg('bot', '<em class="fa fa-exclamation-circle"></em> ' + (err.message || 'Connection failed'), { error: true });
+            finish();
+        });
+
+        function handleEvent(evt, data, sid) {
+            if (evt === 'status') {
+                // replace previous loading status
+                $('#bpMessages .bp-status-loading').each(function() {
+                    $(this).find('.bp-spinner').replaceWith('<em class="fa fa-check-circle text-success" style="font-size:12px"></em>');
+                    $(this).removeClass('bp-status-loading');
+                });
+                addMsg('bot', '<div class="bp-status bp-status-loading"><div class="bp-spinner"></div> ' + data.text + '</div>');
+                scrollBottom();
+            }
+            if (evt === 'chunk') {
+                var $el = $('#' + sid);
+                if (!$el.length) {
+                    // clear final status spinner
+                    $('#bpMessages .bp-status-loading').each(function() {
+                        $(this).find('.bp-spinner').replaceWith('<em class="fa fa-check-circle text-success" style="font-size:12px"></em>');
+                        $(this).removeClass('bp-status-loading');
+                    });
+                    addMsg('bot', '<div class="bp-stream-content"></div><span class="bp-cursor">|</span>', { id: sid });
+                    $el = $('#' + sid);
+                }
+                $el.find('.bp-stream-content').html(mdToHtml(fullText + data.text));
+                scrollBottom();
+            }
+            if (evt === 'done') {
+                var $el = $('#' + sid);
+                if ($el.length) {
+                    $el.find('.bp-stream-content').html(mdToHtml(data.text));
+                    $el.find('.bp-cursor').remove();
+                }
+                generatedContent = data.text;
+                $('#bpSaveBar').css('display', 'flex');
+                scrollBottom();
+            }
+            if (evt === 'error') {
+                addMsg('bot', '<em class="fa fa-exclamation-circle"></em> ' + data.text, { error: true });
+            }
+        }
+
+        function finish() {
+            generating = false;
+            $sendBtn.prop('disabled', !$input.val().trim());
+            // clear any remaining spinners
+            $('#bpMessages .bp-status-loading').each(function() {
+                $(this).find('.bp-spinner').replaceWith('<em class="fa fa-check-circle text-success" style="font-size:12px"></em>');
+                $(this).removeClass('bp-status-loading');
+            });
+        }
+    }
+
+    window.bpSave = function(push) {
+        if (!generatedContent) return;
+        var filename = $('#bpPlanName').val().replace(/[^A-Za-z0-9_\-]/g, '_') + '.md';
+        $('#bpSaveBtn, #bpPushBtn').prop('disabled', true).text('Saving...');
+
+        $.ajax({
+            url: '{{ route("budget-plans.save") }}',
+            method: 'POST',
+            contentType: 'application/json',
+            headers: { 'X-CSRF-TOKEN': csrfToken },
+            data: JSON.stringify({ content: generatedContent, filename: filename, push: push }),
+            success: function(res) {
+                var msg = '<em class="fa fa-check-circle text-success"></em> Saved as <strong>' + filename + '</strong>';
+                if (push && res.pushed) msg += ' &mdash; pushed to Google Drive';
+                else if (push && !res.pushed) msg += ' <small class="text-muted">(Drive push failed)</small>';
+                addMsg('bot', msg);
+
+                // add to plan list if not already there
+                var $tbody = $('#bpPlanTbody');
+                if (!$tbody.length) {
+                    // replace empty message with table
+                    $('#bpPlanList .box-body').replaceWith(
+                        '<div class="box-body no-padding"><table class="table table-striped table-hover">' +
+                        '<thead><tr><th>Plan</th><th>Last Modified</th><th class="text-right">Size</th></tr></thead>' +
+                        '<tbody id="bpPlanTbody"></tbody></table></div>'
+                    );
+                    $tbody = $('#bpPlanTbody');
+                }
+                var planName = filename.replace(/_/g, ' ').replace('.md', '');
+                var today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                var kb = (generatedContent.length / 1024).toFixed(1);
+                var row = '<tr style="background:#f0fdf4"><td><a href="/budget-plans/' + filename + '"><em class="fa fa-file-text-o fa-fw"></em> ' + planName + '</a></td>' +
+                    '<td>' + today + '</td><td class="text-right">' + kb + ' KB</td></tr>';
+                $tbody.prepend(row);
+            },
+            error: function() { addMsg('bot', '<em class="fa fa-exclamation-circle"></em> Save failed.', { error: true }); },
+            complete: function() {
+                $('#bpSaveBtn').prop('disabled', false).html('<em class="fa fa-floppy-o"></em> Save');
+                $('#bpPushBtn').prop('disabled', false).html('<em class="fa fa-cloud-upload"></em> Save & Push to Drive');
+            }
+        });
+    };
+
+    // minimal markdown-to-html
+    function mdToHtml(md) {
+        if (!md) return '';
+        var h = md.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        h = h.replace(/```([a-z]*)\n([\s\S]*?)```/g, function(_,l,c) { return '<pre><code>'+c.trim()+'</code></pre>'; });
+        h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
+        h = h.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+        h = h.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+        h = h.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+        h = h.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+        h = h.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+        h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        h = h.replace(/\*(.+?)\*/g, '<em>$1</em>');
+        h = h.replace(/^---+$/gm, '<hr>');
+        h = h.replace(/((?:^\|.+\|$\n?)+)/gm, function(tb) {
+            var rows = tb.trim().split('\n'), t = '<table class="table table-bordered table-condensed" style="font-size:12px">';
+            for (var i=0;i<rows.length;i++) {
+                if (rows[i].match(/^\|[\s\-:|]+\|$/)) continue;
+                var cells = rows[i].split('|').filter(function(_,ci,a){return ci>0&&ci<a.length-1;});
+                var tag = i===0?'th':'td';
+                if (i===0) t+='<thead>';
+                if (i===1) t+='</thead><tbody>';
+                t+='<tr>'+cells.map(function(c){return '<'+tag+'>'+c.trim()+'</'+tag+'>';}).join('')+'</tr>';
+            }
+            return t+'</tbody></table>';
+        });
+        h = h.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+        h = h.replace(/((?:^- .+$\n?)+)/gm, function(b) {
+            return '<ul>'+b.trim().split('\n').map(function(l){return '<li>'+l.replace(/^- /,'')+'</li>';}).join('')+'</ul>';
+        });
+        h = h.replace(/((?:^\d+\. .+$\n?)+)/gm, function(b) {
+            return '<ol>'+b.trim().split('\n').map(function(l){return '<li>'+l.replace(/^\d+\. /,'')+'</li>';}).join('')+'</ol>';
+        });
+        h = h.replace(/\n{2,}/g, '</p><p>');
+        h = h.replace(/\n/g, '<br>');
+        if (h.charAt(0)!=='<') h='<p>'+h+'</p>';
+        return h;
+    }
+})();
+</script>
 {% endblock %}

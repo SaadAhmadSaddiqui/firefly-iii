@@ -50,7 +50,10 @@ class BudgetPlanController extends Controller
 
         usort($plans, static fn (array $a, array $b): int => strcmp($b['filename'], $a['filename']));
 
-        return view('budget-plans.index', compact('plans'));
+        $llmBackend  = config('budget-planner.backend', 'ollama');
+        $llmCurrency = config('budget-planner.default_currency', 'AED');
+
+        return view('budget-plans.index', compact('plans', 'llmBackend', 'llmCurrency'));
     }
 
     /**

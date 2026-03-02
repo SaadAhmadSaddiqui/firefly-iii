@@ -192,6 +192,12 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="{{ route('budget-plans.index') }}" class="nav-link">
+                        <i class="nav-icon fa-solid fa-wand-magic-sparkles"></i>
+                        <p>{{ __('firefly.budget_planner') }}</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="{{ route('backup.index') }}" class="nav-link">
                         <i class="nav-icon fa-solid fa-database"></i>
                         <p>{{ __('firefly.backup_menu') }}</p>

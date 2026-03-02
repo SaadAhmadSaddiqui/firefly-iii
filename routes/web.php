@@ -1482,6 +1482,9 @@ Route::group(
     static function (): void {
         Route::get('', ['uses' => 'BudgetPlanController@index', 'as' => 'index']);
         Route::get('{filename}', ['uses' => 'BudgetPlanController@show', 'as' => 'show'])->where('filename', '[A-Za-z0-9_\-]+\.md');
+
+        Route::post('generate', ['uses' => 'BudgetPlanChatController@generate', 'as' => 'generate']);
+        Route::post('save', ['uses' => 'BudgetPlanChatController@save', 'as' => 'save']);
     }
 );
 
