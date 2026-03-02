@@ -8,6 +8,32 @@
     {% if total == 0 %}
         {% include 'partials.empty' with {objectType: 'default', type: 'bills',route: route('subscriptions.create')} %}
     {% else %}
+        <div class="row" style="margin-bottom: 15px;">
+            <div class="col-lg-12 col-sm-12 col-md-12">
+                <div class="box box-default">
+                    <div class="box-body" style="padding: 10px 15px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <a href="{{ prevUrl }}" class="btn btn-default btn-sm">
+                                <span class="fa fa-arrow-left"></span> {{ 'previous'|_ }}
+                            </a>
+                            <div style="text-align: center;">
+                                <strong style="font-size: 1.2em;">{{ periodTitle }}</strong>
+                                {% if isCustomPeriod %}
+                                    <br>
+                                    <a href="{{ currentUrl }}" class="btn btn-xs btn-default" style="margin-top: 4px;">
+                                        <span class="fa fa-calendar"></span> {{ 'jump_to_current'|_ }}
+                                    </a>
+                                {% endif %}
+                            </div>
+                            <a href="{{ nextUrl }}" class="btn btn-default btn-sm">
+                                {{ 'next'|_ }} <span class="fa fa-arrow-right"></span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="row">
             <div class="col-lg-12 col-sm-12 col-md-12">
                 <div class="box">

@@ -384,6 +384,13 @@ Breadcrumbs::for(
     }
 );
 Breadcrumbs::for(
+    'subscriptions.index.date',
+    static function (Generator $breadcrumbs, ?Carbon $start = null, ?Carbon $end = null): void {
+        $breadcrumbs->parent('home');
+        $breadcrumbs->push(trans('breadcrumbs.bills'), route('subscriptions.index'));
+    }
+);
+Breadcrumbs::for(
     'subscriptions.create',
     static function (Generator $breadcrumbs): void {
         $breadcrumbs->parent('subscriptions.index');

@@ -262,6 +262,9 @@ Route::group(
 Route::group(
     ['middleware' => 'user-full-auth', 'namespace' => 'FireflyIII\Http\Controllers', 'prefix' => 'subscriptions', 'as' => 'subscriptions.'],
     static function (): void {
+        Route::get('{start_date}/{end_date}', ['uses' => 'Bill\IndexController@index', 'as' => 'index.date'])
+            ->where(['start_date' => DATEFORMAT])
+            ->where(['end_date' => DATEFORMAT]);
         Route::get('', ['uses' => 'Bill\IndexController@index', 'as' => 'index']);
         Route::post('rescan/{bill}', ['uses' => 'Bill\ShowController@rescan', 'as' => 'rescan']);
         Route::get('create', ['uses' => 'Bill\CreateController@create', 'as' => 'create']);

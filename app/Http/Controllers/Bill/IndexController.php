@@ -24,6 +24,7 @@ declare(strict_types=1);
 
 namespace FireflyIII\Http\Controllers\Bill;
 
+use Carbon\Carbon;
 use FireflyIII\Http\Controllers\Controller;
 use FireflyIII\Models\Bill;
 use FireflyIII\Repositories\Bill\BillRepositoryInterface;
@@ -69,29 +70,43 @@ class IndexController extends Controller
     /**
      * Show all bills.
      */
-    public function index(): Application|Factory|\Illuminate\Contracts\Foundation\Application|View
+    public function index(?Carbon $start = null, ?Carbon $end = null): Application|Factory|\Illuminate\Contracts\Foundation\Application|View
     {
         $this->cleanupObjectGroups();
         $this->repository->correctOrder();
         $this->repository->correctTransfers();
-        $start       = session('start')->clone();
-        $end         = session('end')->clone();
-        $viewRange   = Preferences::get('viewRange', '1M')->data;
 
-        // give the end some extra space when the user has last7, last30 or last90.
-        if ('last7' === $viewRange || 'last30' === $viewRange) {
-            $end->addDays(30);
+        $isCustomPeriod = $start instanceof Carbon;
+        $viewRange      = Preferences::get('viewRange', '1M')->data;
+
+        if (!$isCustomPeriod) {
+            $start = session('start')->clone();
+            $end   = session('end')->clone();
         }
-        if ('last90' === $viewRange) {
-            $end->addDays(90);
+
+        if (!$isCustomPeriod) {
+            if ('last7' === $viewRange || 'last30' === $viewRange) {
+                $end->addDays(30);
+            }
+            if ('last90' === $viewRange) {
+                $end->addDays(90);
+            }
         }
+
+        $prevStart   = $start->clone()->subMonth()->startOfMonth();
+        $prevEnd     = $start->clone()->subMonth()->endOfMonth();
+        $nextStart   = $start->clone()->addMonth()->startOfMonth();
+        $nextEnd     = $start->clone()->addMonth()->endOfMonth();
+        $currentUrl  = route('subscriptions.index');
+        $prevUrl     = route('subscriptions.index.date', [$prevStart->format('Y-m-d'), $prevEnd->format('Y-m-d')]);
+        $nextUrl     = route('subscriptions.index.date', [$nextStart->format('Y-m-d'), $nextEnd->format('Y-m-d')]);
+        $periodTitle = $start->isoFormat('MMMM YYYY');
 
         $collection  = $this->repository->getBills();
         $total       = $collection->count();
 
         $parameters  = new ParameterBag();
 
-        // enrich
         /** @var User $admin */
         $admin       = auth()->user();
         $enrichment  = new SubscriptionEnrichment();
@@ -109,17 +124,14 @@ class IndexController extends Controller
         $transformer = app(BillTransformer::class);
         $transformer->setParameters($parameters);
 
-        // loop all bills, convert to array and add rules and stuff.
         $rules       = $this->repository->getRulesForBills($collection);
 
-        // make bill groups:
-        $bills       = [0 => ['object_group_id'    => 0, 'object_group_title' => (string) trans('firefly.default_group_title_name'), 'bills'              => []]]; // the index is the order, not the ID.
+        $bills       = [0 => ['object_group_id'    => 0, 'object_group_title' => (string) trans('firefly.default_group_title_name'), 'bills'              => []]];
 
         /** @var Bill $bill */
         foreach ($collection as $bill) {
             $array                            = $transformer->transform($bill);
             $groupOrder                       = (int) $array['object_group_order'];
-            // make group array if necessary:
             $bills[$groupOrder] ??= [
                 'object_group_id'    => $array['object_group_id'],
                 'object_group_title' => $array['object_group_title'],
@@ -136,15 +148,26 @@ class IndexController extends Controller
             $array['rules']                   = $rules[$bill['id']] ?? [];
             $bills[$groupOrder]['bills'][]    = $array;
         }
-        // order by key
         ksort($bills);
 
-        // summarise per currency / per group.
         $sums        = $this->getSums($bills);
         $totals      = $this->getTotals($sums);
         $today       = now()->startOfDay();
 
-        return view('bills.index', ['bills'  => $bills, 'sums'   => $sums, 'total'  => $total, 'totals' => $totals, 'today'  => $today]);
+        return view('bills.index', [
+            'bills'          => $bills,
+            'sums'           => $sums,
+            'total'          => $total,
+            'totals'         => $totals,
+            'today'          => $today,
+            'isCustomPeriod' => $isCustomPeriod,
+            'periodTitle'    => $periodTitle,
+            'prevUrl'        => $prevUrl,
+            'nextUrl'        => $nextUrl,
+            'currentUrl'     => $currentUrl,
+            'start'          => $start,
+            'end'            => $end,
+        ]);
     }
 
     /**
