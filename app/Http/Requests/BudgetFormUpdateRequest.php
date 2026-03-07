@@ -49,6 +49,7 @@ class BudgetFormUpdateRequest extends FormRequest
         return [
             'name'               => $this->convertString('name'),
             'active'             => $this->boolean('active'),
+            'include_in_charts'  => $this->boolean('include_in_charts'),
             'auto_budget_type'   => $this->convertInteger('auto_budget_type'),
             'currency_id'        => $this->convertInteger('auto_budget_currency_id'),
             'auto_budget_amount' => $this->convertString('auto_budget_amount'),
@@ -74,6 +75,7 @@ class BudgetFormUpdateRequest extends FormRequest
         return [
             'name'                    => $nameRule,
             'active'                  => 'numeric|min:0|max:1',
+            'include_in_charts'       => 'numeric|min:0|max:1',
             'auto_budget_type'        => 'numeric|integer|gte:0|lte:31',
             'auto_budget_currency_id' => 'exists:transaction_currencies,id',
             'auto_budget_amount'      => ['required_if:auto_budget_type,1', 'required_if:auto_budget_type,2|numeric', new IsValidPositiveAmount()],

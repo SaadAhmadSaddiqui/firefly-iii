@@ -234,6 +234,15 @@ class Handler extends ExceptionHandler
 
             return;
         }
+        // Prevent infinite recursion: if MailError itself fails, don't try to mail that failure.
+        static $isReporting = false;
+        if ($isReporting) {
+            parent::report($e);
+
+            return;
+        }
+        $isReporting     = true;
+
         $userData        = ['id'    => 0, 'email' => 'unknown@example.com'];
         if (app()->bound('auth') && auth()->check()) {
             $userData['id']    = auth()->user()->id;
@@ -263,6 +272,8 @@ class Handler extends ExceptionHandler
         $ipAddress       = request()->ip() ?? '0.0.0.0';
         $job             = new MailError($userData, (string) config('firefly.site_owner'), $ipAddress, $data);
         dispatch($job);
+
+        $isReporting = false;
 
         parent::report($e);
     }

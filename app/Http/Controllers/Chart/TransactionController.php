@@ -29,8 +29,10 @@ use FireflyIII\Enums\TransactionTypeEnum;
 use FireflyIII\Generator\Chart\Basic\GeneratorInterface;
 use FireflyIII\Helpers\Collector\GroupCollectorInterface;
 use FireflyIII\Http\Controllers\Controller;
+use FireflyIII\Models\Budget;
 use FireflyIII\Support\CacheProperties;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Collection;
 
 /**
  * Class TransactionController
@@ -54,10 +56,13 @@ class TransactionController extends Controller
      */
     public function budgets(Carbon $start, Carbon $end)
     {
+        $excludedBudgets = $this->getExcludedBudgets();
+
         $cache     = new CacheProperties();
         $cache->addProperty($start);
         $cache->addProperty($end);
         $cache->addProperty('chart.transactions.budgets');
+        $cache->addProperty($excludedBudgets->pluck('id')->toArray());
         if ($cache->has()) {
             return response()->json($cache->get());
         }
@@ -67,6 +72,10 @@ class TransactionController extends Controller
         $collector->setRange($start, $end);
         $collector->withBudgetInformation();
         $collector->setTypes([TransactionTypeEnum::WITHDRAWAL->value]);
+
+        if ($excludedBudgets->count() > 0) {
+            $collector->excludeBudgets($excludedBudgets);
+        }
 
         $result    = $collector->getExtractedJournals();
         $data      = [];
@@ -94,11 +103,14 @@ class TransactionController extends Controller
      */
     public function categories(string $objectType, Carbon $start, Carbon $end)
     {
+        $excludedBudgets = $this->getExcludedBudgets();
+
         $cache     = new CacheProperties();
         $cache->addProperty($start);
         $cache->addProperty($end);
         $cache->addProperty($objectType);
         $cache->addProperty('chart.transactions.categories');
+        $cache->addProperty($excludedBudgets->pluck('id')->toArray());
         if ($cache->has()) {
             return response()->json($cache->get());
         }
@@ -116,6 +128,11 @@ class TransactionController extends Controller
         }
         if ('transfer' === $objectType || 'transfers' === $objectType) {
             $collector->setTypes([TransactionTypeEnum::TRANSFER->value]);
+        }
+
+        if ($excludedBudgets->count() > 0) {
+            $collector->withBudgetInformation();
+            $collector->excludeBudgets($excludedBudgets);
         }
 
         $result    = $collector->getExtractedJournals();
@@ -144,11 +161,14 @@ class TransactionController extends Controller
      */
     public function destinationAccounts(string $objectType, Carbon $start, Carbon $end)
     {
+        $excludedBudgets = $this->getExcludedBudgets();
+
         $cache     = new CacheProperties();
         $cache->addProperty($start);
         $cache->addProperty($end);
         $cache->addProperty($objectType);
         $cache->addProperty('chart.transactions.destinations');
+        $cache->addProperty($excludedBudgets->pluck('id')->toArray());
         if ($cache->has()) {
             return response()->json($cache->get());
         }
@@ -166,6 +186,11 @@ class TransactionController extends Controller
         }
         if ('transfer' === $objectType || 'transfers' === $objectType) {
             $collector->setTypes([TransactionTypeEnum::TRANSFER->value]);
+        }
+
+        if ($excludedBudgets->count() > 0) {
+            $collector->withBudgetInformation();
+            $collector->excludeBudgets($excludedBudgets);
         }
 
         $result    = $collector->getExtractedJournals();
@@ -194,11 +219,14 @@ class TransactionController extends Controller
      */
     public function sourceAccounts(string $objectType, Carbon $start, Carbon $end)
     {
+        $excludedBudgets = $this->getExcludedBudgets();
+
         $cache     = new CacheProperties();
         $cache->addProperty($start);
         $cache->addProperty($end);
         $cache->addProperty($objectType);
         $cache->addProperty('chart.transactions.sources');
+        $cache->addProperty($excludedBudgets->pluck('id')->toArray());
         if ($cache->has()) {
             return response()->json($cache->get());
         }
@@ -216,6 +244,11 @@ class TransactionController extends Controller
         }
         if ('transfer' === $objectType || 'transfers' === $objectType) {
             $collector->setTypes([TransactionTypeEnum::TRANSFER->value]);
+        }
+
+        if ($excludedBudgets->count() > 0) {
+            $collector->withBudgetInformation();
+            $collector->excludeBudgets($excludedBudgets);
         }
 
         $result    = $collector->getExtractedJournals();
@@ -237,5 +270,12 @@ class TransactionController extends Controller
         $cache->store($chart);
 
         return response()->json($chart);
+    }
+
+    private function getExcludedBudgets(): Collection
+    {
+        return Budget::where('user_id', auth()->user()->id)
+            ->where('include_in_charts', false)
+            ->get();
     }
 }

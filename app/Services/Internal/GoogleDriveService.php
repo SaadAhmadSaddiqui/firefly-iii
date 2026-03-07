@@ -171,13 +171,26 @@ class GoogleDriveService
 
     public function downloadBackup(string $fileId, string $destPath): void
     {
-        $service  = new GoogleDrive($this->getClient());
-        $response = $service->files->get($fileId, ['alt' => 'media']);
-        $content  = $response->getBody()->getContents();
+        $client = $this->getClient();
+        $client->setDefer(true);
 
-        if (false === file_put_contents($destPath, $content)) {
-            throw new \RuntimeException('Could not write downloaded backup to: ' . $destPath);
+        $service  = new GoogleDrive($client);
+        $request  = $service->files->get($fileId, ['alt' => 'media']);
+        $response = $client->execute($request);
+
+        $client->setDefer(false);
+
+        $body = $response->getBody();
+        $dest = fopen($destPath, 'wb');
+        if (false === $dest) {
+            throw new \RuntimeException('Could not open destination file: ' . $destPath);
         }
+
+        while (!$body->eof()) {
+            fwrite($dest, $body->read(1048576)); // 1MB chunks
+        }
+
+        fclose($dest);
     }
 
     public function deleteBackup(string $fileId): void

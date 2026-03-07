@@ -94,6 +94,7 @@ class EditController extends Controller
         $hasOldInput       = null !== $request->old('_token');
         $preFilled         = [
             'active'                  => $hasOldInput ? (bool) $request->old('active') : $budget->active,
+            'include_in_charts'       => $hasOldInput ? (bool) $request->old('include_in_charts') : $budget->include_in_charts,
             'auto_budget_currency_id' => $hasOldInput ? (int) $request->old('auto_budget_currency_id') : $this->primaryCurrency->id,
             'notes'                   => $this->repository->getNoteText($budget),
         ];

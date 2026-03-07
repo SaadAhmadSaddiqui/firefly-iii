@@ -4,7 +4,19 @@
     var config = window.bankImportConfig;
     if (!config) return;
 
-    var editor, lastContent = null, lastAcct = null;
+    var editor, lastContent = null, lastAcct = null, previewData = [];
+
+    function buildOptions(list, placeholder) {
+        var html = '<option value="">' + esc(placeholder) + '</option>';
+        (list || []).forEach(function (item) {
+            html += '<option value="' + item.id + '">' + esc(item.name) + '</option>';
+        });
+        return html;
+    }
+
+    var budgetOpts    = buildOptions(config.budgets || [], '-- Budget --');
+    var categoryOpts  = buildOptions(config.categories || [], '-- Category --');
+    var billOpts      = buildOptions(config.bills || [], '-- Subscription --');
 
     function init() {
         var ta = document.getElementById('code-editor');
@@ -36,6 +48,12 @@
 
         document.getElementById('btn-preview').addEventListener('click', doPreview);
         document.getElementById('btn-import').addEventListener('click', doImport);
+        document.getElementById('btn-dry-run').addEventListener('click', doDryRun);
+
+        document.getElementById('preview-table').addEventListener('click', function (e) {
+            var btn = e.target.closest('.btn-delete-txn');
+            if (btn) deleteTransaction(btn);
+        });
     }
 
     function acct() {
@@ -62,6 +80,22 @@
             b.disabled = false;
             if (b.dataset.o) b.innerHTML = b.dataset.o;
         }
+    }
+
+    function collectOverrides() {
+        var rows = document.querySelectorAll('#preview-table tbody tr');
+        var overrides = [];
+        rows.forEach(function (tr) {
+            var budgetSel   = tr.querySelector('.sel-budget');
+            var categorySel = tr.querySelector('.sel-category');
+            var billSel     = tr.querySelector('.sel-bill');
+            overrides.push({
+                budget_id:   budgetSel   ? budgetSel.value   : '',
+                category_id: categorySel ? categorySel.value : '',
+                bill_id:     billSel     ? billSel.value     : ''
+            });
+        });
+        return overrides;
     }
 
     function doPreview() {
@@ -93,12 +127,30 @@
         var fd = new FormData();
         fd.append('pasted_content', lastContent || content());
         fd.append('_token', config.csrfToken);
+        fd.append('overrides', JSON.stringify(collectOverrides()));
         if (config.sourceAccountParamName && lastAcct) fd.append(config.sourceAccountParamName, lastAcct);
 
         fetch(config.importUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) { spin(b, false); if (d.error) { alert(d.error); return; } showResults(d); })
             .catch(function (e) { spin(b, false); alert('Import failed: ' + e.message); });
+    }
+
+    function doDryRun() {
+        var b = document.getElementById('btn-dry-run');
+        spin(b, true);
+
+        var fd = new FormData();
+        fd.append('pasted_content', lastContent || content());
+        fd.append('_token', config.csrfToken);
+        fd.append('dry_run', '1');
+        fd.append('overrides', JSON.stringify(collectOverrides()));
+        if (config.sourceAccountParamName && lastAcct) fd.append(config.sourceAccountParamName, lastAcct);
+
+        fetch(config.importUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { spin(b, false); if (d.error) { alert(d.error); return; } showDryRunResults(d); })
+            .catch(function (e) { spin(b, false); alert('Dry run failed: ' + e.message); });
     }
 
     function showPreview(data) {
@@ -109,27 +161,141 @@
         tb.innerHTML = '';
 
         if (!data.transactions.length) {
-            tb.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No transactions found.</td></tr>';
+            tb.innerHTML = '<tr><td colspan="11" class="text-center text-muted">No transactions found.</td></tr>';
             sec.style.display = 'block';
             return;
         }
 
-        data.transactions.forEach(function (t) {
+        previewData = data.transactions;
+        data.transactions.forEach(function (t, idx) {
             var tr = document.createElement('tr');
-            var tc = t.type === 'deposit' ? 'success' : (t.type === 'transfer' ? 'info' : 'danger');
-            var pfx = t.type === 'deposit' ? '+' : '-';
-            var fn = t.foreign_amount && t.foreign_currency ? ' (' + t.foreign_currency + ' ' + t.foreign_amount + ')' : '';
-            tr.innerHTML =
-                '<td>' + esc(t.date) + '</td>' +
-                '<td><span class="label label-' + tc + '">' + esc(t.type) + '</span></td>' +
-                '<td class="text-right">' + pfx + ' ' + esc(t.currency) + ' ' + parseFloat(t.amount).toFixed(2) + esc(fn) + '</td>' +
-                '<td>' + esc(t.description) + '</td>' +
-                '<td>' + esc(t.source || '') + '</td>' +
-                '<td>' + esc(t.destination || '') + '</td>' +
-                '<td>' + (t.tags || []).map(function (g) { return '<span class="label label-default">' + esc(g) + '</span>'; }).join(' ') + '</td>';
+            var btnHtml = '<button type="button" class="btn btn-xs btn-danger btn-delete-txn" title="Remove from source"' +
+                ' data-idx="' + idx + '"' +
+                '><span class="fa fa-trash"></span></button>';
+
+            if (t.skipped) {
+                tr.className = 'preview-skipped';
+                var pfx = t.type === 'deposit' ? '+' : '-';
+                tr.innerHTML =
+                    '<td>' + esc(t.date) + '</td>' +
+                    '<td><span class="label label-default">skipped</span></td>' +
+                    '<td class="text-right">' + pfx + ' ' + esc(t.currency) + ' ' + parseFloat(t.amount || 0).toFixed(2) + '</td>' +
+                    '<td>' + esc(t.description) + '</td>' +
+                    '<td colspan="2" class="text-muted"><em>' + esc(t.skip_reason || '') + '</em></td>' +
+                    '<td></td>' +
+                    '<td></td><td></td><td></td>' +
+                    '<td>' + btnHtml + '</td>';
+            } else {
+                var tc = t.type === 'deposit' ? 'success' : (t.type === 'transfer' ? 'info' : 'danger');
+                var pfx2 = t.type === 'deposit' ? '+' : '-';
+                var fn = t.foreign_amount && t.foreign_currency ? ' (' + t.foreign_currency + ' ' + t.foreign_amount + ')' : '';
+                tr.innerHTML =
+                    '<td>' + esc(t.date) + '</td>' +
+                    '<td><span class="label label-' + tc + '">' + esc(t.type) + '</span></td>' +
+                    '<td class="text-right">' + pfx2 + ' ' + esc(t.currency) + ' ' + parseFloat(t.amount).toFixed(2) + esc(fn) + '</td>' +
+                    '<td>' + esc(t.description) + '</td>' +
+                    '<td>' + esc(t.source || '') + '</td>' +
+                    '<td>' + esc(t.destination || '') + '</td>' +
+                    '<td>' + (t.tags || []).map(function (g) { return '<span class="label label-default">' + esc(g) + '</span>'; }).join(' ') + '</td>' +
+                    '<td><select class="form-control input-sm sel-budget">' + budgetOpts + '</select></td>' +
+                    '<td><select class="form-control input-sm sel-category">' + categoryOpts + '</select></td>' +
+                    '<td><select class="form-control input-sm sel-bill">' + billOpts + '</select></td>' +
+                    '<td>' + btnHtml + '</td>';
+            }
             tb.appendChild(tr);
         });
 
+        sec.style.display = 'block';
+        sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function deleteTransaction(btn) {
+        var row = btn.closest('tr');
+        var idx = parseInt(btn.dataset.idx, 10);
+        var item = previewData[idx];
+        if (!item) return;
+
+        var isSkipped = !!item.skipped;
+        var editorContent = content();
+        if (!editorContent) return;
+
+        var updated = editorContent;
+        if (config.editorMode === 'application/json') {
+            try {
+                var data = JSON.parse(editorContent);
+                if (data.transactions && item.original_id) {
+                    data.transactions = data.transactions.filter(function (txn) {
+                        return txn.id !== item.original_id;
+                    });
+                    updated = JSON.stringify(data, null, '\t');
+                }
+            } catch (err) {
+                alert('Could not parse editor JSON: ' + err.message);
+                return;
+            }
+        } else if (item.original_raw) {
+            var lines = editorContent.split(/\r?\n/);
+            var needle = item.original_raw.trim();
+            var found = false;
+            var filtered = lines.filter(function (line) {
+                if (!found && line.trim() === needle) {
+                    found = true;
+                    return false;
+                }
+                return true;
+            });
+            updated = filtered.join('\n');
+        }
+
+        if (editor) editor.setValue(updated);
+        lastContent = updated;
+
+        row.parentNode.removeChild(row);
+
+        var countEl = document.getElementById(isSkipped ? 'skipped-count' : 'preview-count');
+        var cur = parseInt(countEl.textContent, 10) || 0;
+        if (cur > 0) countEl.textContent = cur - 1;
+    }
+
+    function showDryRunResults(data) {
+        var sec = document.getElementById('dry-run-section');
+        var summary = document.getElementById('dry-run-summary');
+        var tb = document.querySelector('#dry-run-table tbody');
+
+        summary.innerHTML =
+            '<dt>Would be created</dt><dd><strong class="text-success">' + data.created + '</strong></dd>' +
+            '<dt>Duplicates</dt><dd><strong class="text-warning">' + data.duplicates + '</strong></dd>' +
+            '<dt>Would fail</dt><dd>' + (data.failed > 0 ? '<strong class="text-danger">' + data.failed + '</strong>' : '0') + '</dd>';
+
+        tb.innerHTML = '';
+        var details = data.details || [];
+        details.forEach(function (d) {
+            var tr = document.createElement('tr');
+            var statusLabel, statusClass;
+            if (d.status === 'created') {
+                statusLabel = 'Would be created';
+                statusClass = 'success';
+                tr.className = 'dry-run-created';
+            } else if (d.status === 'duplicate') {
+                statusLabel = 'Duplicate';
+                statusClass = 'warning';
+                tr.className = 'dry-run-duplicate';
+            } else {
+                statusLabel = 'Would fail';
+                statusClass = 'danger';
+                tr.className = 'dry-run-failed';
+            }
+            var pfx = d.type === 'deposit' ? '+' : '-';
+            tr.innerHTML =
+                '<td>' + esc(d.date) + '</td>' +
+                '<td>' + esc(d.description) + '</td>' +
+                '<td class="text-right">' + pfx + ' ' + esc(d.currency) + ' ' + parseFloat(d.amount).toFixed(2) + '</td>' +
+                '<td><span class="label label-' + statusClass + '">' + esc(statusLabel) + '</span></td>' +
+                '<td>' + (d.message ? esc(d.message) : '') + '</td>';
+            tb.appendChild(tr);
+        });
+
+        document.getElementById('results-section').style.display = 'none';
         sec.style.display = 'block';
         sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -149,6 +315,7 @@
         }
         body.innerHTML = h;
         document.getElementById('preview-section').style.display = 'none';
+        document.getElementById('dry-run-section').style.display = 'none';
         sec.style.display = 'block';
         sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }

@@ -60,14 +60,31 @@ class EnbdParser
         $status = strtoupper($txn['status'] ?? '');
         if (in_array($status, ['FAILED', 'CANCELLED', 'REVERSED', 'REFUNDED', 'DROPPED'], true)) {
             $skipDate = $dateMs ? date('Y-m-d', (int) ($dateMs / 1000)) : '?';
-            $this->skipped[] = ['reason' => "Status: {$status}", 'description' => "{$skipDate} {$this->getEnTitle($txn)}"];
+            $this->skipped[] = [
+                'reason'        => "Status: {$status}",
+                'description'   => $this->getEnTitle($txn) ?: 'Unknown',
+                'date'          => $skipDate,
+                'amount'        => (string) $amount,
+                'currency_code' => $currency,
+                'type'          => 'DR' === $direction ? 'withdrawal' : 'deposit',
+                'original_id'   => $externalId,
+            ];
 
             return null;
         }
 
         $txnType = $txn['type'] ?? '';
         if ('PAYMENT' === $txnType && 'CR' === $direction && (null === $dateMs || $dateMs < 86400000)) {
-            $this->skipped[] = ['reason' => 'CC payment already imported as transfer', 'description' => $this->getEnTitle($txn)];
+            $skipDate = $dateMs ? date('Y-m-d', (int) ($dateMs / 1000)) : '?';
+            $this->skipped[] = [
+                'reason'        => 'CC payment already imported as transfer',
+                'description'   => $this->getEnTitle($txn) ?: 'CC Payment',
+                'date'          => $skipDate,
+                'amount'        => (string) $amount,
+                'currency_code' => $currency,
+                'type'          => 'deposit',
+                'original_id'   => $externalId,
+            ];
 
             return null;
         }
@@ -120,6 +137,7 @@ class EnbdParser
             'notes'                 => $this->buildNotes($txn, $narrations, $refNumber),
             'external_id'          => $externalId,
             'internal_reference'   => $refNumber,
+            'original_id'          => $externalId,
         ];
 
         if (null !== $foreignAmount && null !== $foreignCurrency && $foreignCurrency !== $currency) {

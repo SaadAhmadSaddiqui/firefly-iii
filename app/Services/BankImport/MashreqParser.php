@@ -49,7 +49,7 @@ class MashreqParser
                 continue;
             }
 
-            $result = $this->mapRow($cols, $sourceAccountId, $lineNum + 2);
+            $result = $this->mapRow($cols, $sourceAccountId, $lineNum + 2, $rawLine);
             if (null !== $result) {
                 $mapped[] = $result;
             }
@@ -58,7 +58,7 @@ class MashreqParser
         return ['transactions' => $mapped, 'skipped' => $this->skipped];
     }
 
-    private function mapRow(array $cols, int $sourceAccountId, int $csvLine): ?array
+    private function mapRow(array $cols, int $sourceAccountId, int $csvLine, string $rawLine = ''): ?array
     {
         [$dateStr, $description, $origCurrency, $origAmountStr, $localAmountStr] = $cols;
 
@@ -72,7 +72,15 @@ class MashreqParser
         }
 
         if (stripos($description, 'INWARD IPP CC') !== false) {
-            $this->skipped[] = ['reason' => 'CC payment already imported as transfer', 'description' => sprintf('%s (%.2f AED)', $dateStr, $localAmount)];
+            $this->skipped[] = [
+                'reason'        => 'CC payment already imported as transfer',
+                'description'   => $description,
+                'date'          => trim($dateStr),
+                'amount'        => (string) abs($localAmount),
+                'currency_code' => 'AED',
+                'type'          => $localAmount > 0 ? 'deposit' : 'withdrawal',
+                'original_raw'  => $rawLine,
+            ];
 
             return null;
         }
@@ -124,6 +132,7 @@ class MashreqParser
                 'tags'                  => $tags,
                 'notes'                 => $notes,
                 'external_id'           => $externalId,
+                'original_raw'          => $rawLine,
             ];
         } else {
             $expenseName = $this->matchExpenseAccount($merchantName);
@@ -141,6 +150,7 @@ class MashreqParser
                 'tags'                  => $tags,
                 'notes'                 => $notes,
                 'external_id'           => $externalId,
+                'original_raw'          => $rawLine,
             ];
         }
 

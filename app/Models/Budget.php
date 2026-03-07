@@ -41,7 +41,7 @@ class Budget extends Model
     use ReturnsIntegerUserIdTrait;
     use SoftDeletes;
 
-    protected $fillable = ['user_id', 'user_group_id', 'name', 'active', 'order', 'user_group_id'];
+    protected $fillable = ['user_id', 'user_group_id', 'name', 'active', 'include_in_charts', 'order', 'user_group_id'];
 
     protected $hidden   = ['encrypted'];
 
@@ -120,7 +120,8 @@ class Budget extends Model
             'created_at'    => 'datetime',
             'updated_at'    => 'datetime',
             'deleted_at'    => 'datetime',
-            'active'        => 'boolean',
+            'active'            => 'boolean',
+            'include_in_charts' => 'boolean',
             'encrypted'     => 'boolean',
             'user_id'       => 'integer',
             'user_group_id' => 'integer',

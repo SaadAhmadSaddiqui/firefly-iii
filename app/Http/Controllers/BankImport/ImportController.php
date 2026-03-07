@@ -7,6 +7,9 @@ namespace FireflyIII\Http\Controllers\BankImport;
 use Carbon\Carbon;
 use FireflyIII\Factory\TransactionGroupFactory;
 use FireflyIII\Http\Controllers\Controller;
+use FireflyIII\Models\Bill;
+use FireflyIII\Models\Budget;
+use FireflyIII\Models\Category;
 use FireflyIII\Services\BankImport\EnbdParser;
 use FireflyIII\Services\BankImport\FabParser;
 use FireflyIII\Services\BankImport\MashreqParser;
@@ -14,6 +17,7 @@ use FireflyIII\User;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
@@ -34,22 +38,25 @@ class ImportController extends Controller
     public function enbd(): Factory|\Illuminate\Contracts\View\View
     {
         $subTitle = 'Emirates NBD / Islamic';
+        $refData  = $this->getReferenceData();
 
-        return view('bank-import.enbd', compact('subTitle'));
+        return view('bank-import.enbd', compact('subTitle') + $refData);
     }
 
     public function mashreq(): Factory|\Illuminate\Contracts\View\View
     {
         $subTitle = 'Mashreq';
+        $refData  = $this->getReferenceData();
 
-        return view('bank-import.mashreq', compact('subTitle'));
+        return view('bank-import.mashreq', compact('subTitle') + $refData);
     }
 
     public function fab(): Factory|\Illuminate\Contracts\View\View
     {
         $subTitle = 'FAB';
+        $refData  = $this->getReferenceData();
 
-        return view('bank-import.fab', compact('subTitle'));
+        return view('bank-import.fab', compact('subTitle') + $refData);
     }
 
     public function previewEnbd(Request $request): JsonResponse
@@ -101,11 +108,13 @@ class ImportController extends Controller
             return response()->json(['error' => 'No content provided.'], 422);
         }
 
+        $dryRun = (bool) $request->input('dry_run', false);
+        $overrides = $this->parseOverrides($request);
         $sourceAccountId = (int) $request->input('source_account_id', 1);
         $parser = new EnbdParser();
         $result = $parser->parse($content, $sourceAccountId);
 
-        return $this->executeImport($result['transactions']);
+        return $this->executeImport($result['transactions'], $dryRun, $overrides);
     }
 
     public function importMashreq(Request $request): JsonResponse
@@ -115,11 +124,13 @@ class ImportController extends Controller
             return response()->json(['error' => 'No content provided.'], 422);
         }
 
+        $dryRun = (bool) $request->input('dry_run', false);
+        $overrides = $this->parseOverrides($request);
         $sourceAccountId = (int) $request->input('source_account_id', 50);
         $parser = new MashreqParser();
         $result = $parser->parse($content, $sourceAccountId);
 
-        return $this->executeImport($result['transactions']);
+        return $this->executeImport($result['transactions'], $dryRun, $overrides);
     }
 
     public function importFab(Request $request): JsonResponse
@@ -129,11 +140,13 @@ class ImportController extends Controller
             return response()->json(['error' => 'No content provided.'], 422);
         }
 
+        $dryRun = (bool) $request->input('dry_run', false);
+        $overrides = $this->parseOverrides($request);
         $sourceAccountId = (int) $request->input('source_account_id', 51);
         $parser = new FabParser();
         $result = $parser->parse($content, $sourceAccountId);
 
-        return $this->executeImport($result['transactions']);
+        return $this->executeImport($result['transactions'], $dryRun, $overrides);
     }
 
     private function extractContent(Request $request, string $expectedType): ?string
@@ -158,7 +171,7 @@ class ImportController extends Controller
         $rows = [];
         foreach ($parseResult['transactions'] as $txn) {
             $date = $txn['date'] instanceof Carbon ? $txn['date']->format('Y-m-d') : (string) $txn['date'];
-            $rows[] = [
+            $row = [
                 'date'             => $date,
                 'type'             => $txn['type'],
                 'amount'           => $txn['amount'],
@@ -169,51 +182,150 @@ class ImportController extends Controller
                 'tags'             => $txn['tags'] ?? [],
                 'foreign_amount'   => $txn['foreign_amount'] ?? null,
                 'foreign_currency' => $txn['foreign_currency_code'] ?? null,
+                'skipped'          => false,
             ];
+            if (isset($txn['original_id'])) {
+                $row['original_id'] = $txn['original_id'];
+            }
+            if (isset($txn['original_raw'])) {
+                $row['original_raw'] = $txn['original_raw'];
+            }
+            $rows[] = $row;
+        }
+
+        $skippedRows = [];
+        foreach ($parseResult['skipped'] as $skip) {
+            $row = [
+                'date'             => $skip['date'] ?? '?',
+                'type'             => $skip['type'] ?? 'unknown',
+                'amount'           => $skip['amount'] ?? '0',
+                'currency'         => $skip['currency_code'] ?? 'AED',
+                'description'      => $skip['description'] ?? '',
+                'source'           => '',
+                'destination'      => '',
+                'tags'             => [],
+                'foreign_amount'   => null,
+                'foreign_currency' => null,
+                'skipped'          => true,
+                'skip_reason'      => $skip['reason'] ?? 'Skipped',
+            ];
+            if (isset($skip['original_id'])) {
+                $row['original_id'] = $skip['original_id'];
+            }
+            if (isset($skip['original_raw'])) {
+                $row['original_raw'] = $skip['original_raw'];
+            }
+            $skippedRows[] = $row;
         }
 
         return [
-            'transactions' => $rows,
-            'skipped'      => $parseResult['skipped'],
-            'total'        => count($rows),
-            'skipped_count' => count($parseResult['skipped']),
+            'transactions'  => array_merge($rows, $skippedRows),
+            'skipped'       => $parseResult['skipped'],
+            'total'         => count($rows),
+            'skipped_count' => count($skippedRows),
         ];
     }
 
-    private function executeImport(array $transactions): JsonResponse
+    private function parseOverrides(Request $request): array
+    {
+        $raw = $request->input('overrides', '[]');
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            return is_array($decoded) ? $decoded : [];
+        }
+        return is_array($raw) ? $raw : [];
+    }
+
+    private function getReferenceData(): array
     {
         /** @var User $user */
         $user = auth()->user();
 
-        $stats = ['created' => 0, 'duplicates' => 0, 'failed' => 0, 'errors' => []];
+        $budgets    = $user->budgets()->where('active', true)->orderBy('name')->get(['id', 'name']);
+        $categories = $user->categories()->orderBy('name')->get(['id', 'name']);
+        $bills      = $user->bills()->where('active', true)->orderBy('name')->get(['id', 'name']);
 
-        /** @var TransactionGroupFactory $factory */
-        $factory = app(TransactionGroupFactory::class);
-        $factory->setUser($user);
+        return [
+            'budgetsJson'    => $budgets->toJson(),
+            'categoriesJson' => $categories->toJson(),
+            'billsJson'      => $bills->toJson(),
+        ];
+    }
 
-        foreach ($transactions as $mapped) {
-            try {
-                $groupData = [
-                    'user'                    => $user,
-                    'user_group'              => $user->userGroup,
-                    'group_title'             => null,
-                    'error_if_duplicate_hash' => true,
-                    'apply_rules'             => false,
-                    'fire_webhooks'           => false,
-                    'transactions'            => [$mapped],
+    private function executeImport(array $transactions, bool $dryRun = false, array $overrides = []): JsonResponse
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        $stats = ['created' => 0, 'duplicates' => 0, 'failed' => 0, 'errors' => [], 'dry_run' => $dryRun, 'details' => []];
+
+        if ($dryRun) {
+            DB::beginTransaction();
+        }
+
+        try {
+            /** @var TransactionGroupFactory $factory */
+            $factory = app(TransactionGroupFactory::class);
+            $factory->setUser($user);
+
+            foreach ($transactions as $idx => $mapped) {
+                if (isset($overrides[$idx])) {
+                    $ov = $overrides[$idx];
+                    if (!empty($ov['budget_id'])) {
+                        $mapped['budget_id'] = (int) $ov['budget_id'];
+                    }
+                    if (!empty($ov['category_id'])) {
+                        $mapped['category_id'] = (int) $ov['category_id'];
+                    }
+                    if (!empty($ov['bill_id'])) {
+                        $mapped['bill_id'] = (int) $ov['bill_id'];
+                    }
+                }
+
+                $date = $mapped['date'] instanceof Carbon ? $mapped['date']->format('Y-m-d') : (string) $mapped['date'];
+                $detail = [
+                    'date'        => $date,
+                    'description' => $mapped['description'],
+                    'amount'      => $mapped['amount'],
+                    'type'        => $mapped['type'],
+                    'currency'    => $mapped['currency_code'] ?? 'AED',
+                    'status'      => 'created',
+                    'message'     => '',
                 ];
 
-                $factory->create($groupData);
-                ++$stats['created'];
-            } catch (\Exception $e) {
-                $msg = $e->getMessage();
-                if (str_contains(strtolower($msg), 'duplicate')) {
-                    ++$stats['duplicates'];
-                } else {
-                    ++$stats['failed'];
-                    $stats['errors'][] = sprintf('%s: %s', mb_substr($mapped['description'], 0, 40), $msg);
-                    Log::error(sprintf('BankImport failed: %s — %s', $mapped['description'], $msg));
+                try {
+                    $groupData = [
+                        'user'                    => $user,
+                        'user_group'              => $user->userGroup,
+                        'group_title'             => null,
+                        'error_if_duplicate_hash' => true,
+                        'apply_rules'             => false,
+                        'fire_webhooks'           => false,
+                        'transactions'            => [$mapped],
+                    ];
+
+                    $factory->create($groupData);
+                    ++$stats['created'];
+                } catch (\Exception $e) {
+                    $msg = $e->getMessage();
+                    if (str_contains(strtolower($msg), 'duplicate')) {
+                        ++$stats['duplicates'];
+                        $detail['status'] = 'duplicate';
+                        $detail['message'] = 'Duplicate transaction already exists';
+                    } else {
+                        ++$stats['failed'];
+                        $detail['status'] = 'failed';
+                        $detail['message'] = $msg;
+                        $stats['errors'][] = sprintf('%s: %s', mb_substr($mapped['description'], 0, 40), $msg);
+                        Log::error(sprintf('BankImport failed: %s — %s', $mapped['description'], $msg));
+                    }
                 }
+
+                $stats['details'][] = $detail;
+            }
+        } finally {
+            if ($dryRun) {
+                DB::rollBack();
             }
         }
 

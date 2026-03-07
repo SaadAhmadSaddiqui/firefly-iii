@@ -54,6 +54,7 @@ return [
     'destination_account'         => 'Destination account',
     'asset_destination_account'   => 'Destination account',
     'include_net_worth'           => 'Include in net worth',
+    'include_in_charts'           => 'Include in charts',
     'asset_source_account'        => 'Source account',
     'journal_description'         => 'Description',
     'note'                        => 'Notes',

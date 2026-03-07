@@ -19,3 +19,26 @@
     padding: 12px 15px; font-size: 12px; line-height: 1.5; max-height: 400px;
     overflow: auto; margin: 0;
 }
+
+/* Preview table horizontal scroll */
+#preview-table { min-width: 1200px; }
+#preview-table th, #preview-table td { white-space: nowrap; }
+#preview-table td:nth-child(4) { white-space: normal; min-width: 180px; max-width: 300px; }
+
+/* Dropdown selects in preview table */
+#preview-table .sel-budget,
+#preview-table .sel-category,
+#preview-table .sel-bill { width: 140px; font-size: 12px; padding: 2px 4px; height: 28px; }
+
+/* Skipped preview rows */
+tr.preview-skipped { opacity: 0.55; }
+tr.preview-skipped td { font-style: italic; }
+.btn-delete-txn { padding: 2px 6px; line-height: 1; }
+
+/* Dry run result rows */
+#dry-run-table .label { margin-right: 3px; }
+tr.dry-run-created { background-color: rgba(0, 166, 90, 0.08); }
+tr.dry-run-duplicate { background-color: rgba(243, 156, 18, 0.08); }
+tr.dry-run-failed { background-color: rgba(221, 75, 57, 0.08); }
+#dry-run-summary dt { width: 160px; }
+#dry-run-summary dd { margin-left: 180px; }

@@ -52,7 +52,7 @@ class FabParser
                 continue;
             }
 
-            $result = $this->mapRow($cols, $sourceAccountId, $lineIdx + 2);
+            $result = $this->mapRow($cols, $sourceAccountId, $lineIdx + 2, $rawLine);
             if (null !== $result) {
                 $mapped[] = $result;
             }
@@ -61,7 +61,7 @@ class FabParser
         return ['transactions' => $mapped, 'skipped' => $this->skipped];
     }
 
-    private function mapRow(array $cols, int $sourceAccountId, int $csvLine): ?array
+    private function mapRow(array $cols, int $sourceAccountId, int $csvLine, string $rawLine = ''): ?array
     {
         $postingDate = trim($cols[0]);
         $description = trim($cols[1]);
@@ -72,8 +72,16 @@ class FabParser
         $debit  = (float) str_replace(',', '', $debitStr);
         $credit = (float) str_replace(',', '', $creditStr);
 
-        if (stripos($rawDesc, 'Card Payment') !== false && $credit > 0) {
-            $this->skipped[] = ['reason' => 'CC payment already imported as transfer', 'description' => sprintf('%s (%.2f AED)', $postingDate, $credit)];
+        if (stripos($rawDesc, 'INSTQ2MLXYPZL100') !== false && $credit > 0) {
+            $this->skipped[] = [
+                'reason'        => 'CC payment already imported as transfer',
+                'description'   => $rawDesc,
+                'date'          => $postingDate,
+                'amount'        => (string) $credit,
+                'currency_code' => 'AED',
+                'type'          => 'deposit',
+                'original_raw'  => $rawLine,
+            ];
 
             return null;
         }
@@ -118,6 +126,7 @@ class FabParser
                 'notes'                 => $notes,
                 'external_id'           => $externalId,
                 'internal_reference'    => $refNumber,
+                'original_raw'          => $rawLine,
             ];
         }
 
@@ -137,6 +146,7 @@ class FabParser
             'notes'                 => $notes,
             'external_id'           => $externalId,
             'internal_reference'    => $refNumber,
+            'original_raw'          => $rawLine,
         ];
     }
 

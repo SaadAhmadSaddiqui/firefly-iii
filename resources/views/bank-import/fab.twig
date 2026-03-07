@@ -97,15 +97,50 @@
                                 <th>Source</th>
                                 <th>Destination</th>
                                 <th>Tags</th>
+                                <th>Budget</th>
+                                <th>Category</th>
+                                <th>Subscription</th>
+                                <th width="60"></th>
                             </tr>
                         </thead>
                         <tbody></tbody>
                     </table>
                 </div>
                 <div class="box-footer">
+                    <button id="btn-dry-run" class="btn btn-warning btn-lg" style="margin-right: 10px;">
+                        <span class="fa fa-flask fa-fw"></span> Dry Run
+                    </button>
                     <button id="btn-import" class="btn btn-success btn-lg">
                         <span class="fa fa-check fa-fw"></span> Confirm Import
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Dry Run Results Section ── #}
+    <div class="row" id="dry-run-section" style="display: none; margin-top: 15px;">
+        <div class="col-lg-12">
+            <div class="box box-warning">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><span class="fa fa-flask fa-fw"></span> Dry Run Results</h3>
+                </div>
+                <div class="box-body">
+                    <dl class="dl-horizontal" id="dry-run-summary"></dl>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="dry-run-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Description</th>
+                                    <th class="text-right">Amount</th>
+                                    <th>Status</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -139,7 +174,10 @@
             previewUrl: '{{ route("bank-import.fab.preview") }}',
             importUrl: '{{ route("bank-import.fab.import") }}',
             editorMode: 'text/plain',
-            sourceAccountParamName: null
+            sourceAccountParamName: null,
+            budgets: {{ budgetsJson|raw }},
+            categories: {{ categoriesJson|raw }},
+            bills: {{ billsJson|raw }}
         };
     </script>
     <script src="/v1/lib/bank-import/import.js" nonce="{{ JS_NONCE }}"></script>
