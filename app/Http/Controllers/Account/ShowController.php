@@ -64,6 +64,8 @@ class ShowController extends Controller
         parent::__construct();
 
         app('view')->share('showCategory', true);
+        app('view')->share('showBudget', true);
+        app('view')->share('showBill', true);
 
         // translations:
         $this->middleware(function ($request, $next) {
@@ -166,6 +168,10 @@ class ShowController extends Controller
                 ->setPage($page)
                 ->withAttachmentInformation()
                 ->withAPIInformation()
+                ->withAccountInformation()
+                ->withCategoryInformation()
+                ->withBudgetInformation()
+                ->withBillInformation()
                 ->setRange($start, $end)
             ;
             $collector->setExpandGroupSearch(true);
@@ -244,7 +250,7 @@ class ShowController extends Controller
         } else {
             /** @var GroupCollectorInterface $collector */
             $collector = app(GroupCollectorInterface::class);
-            $collector->setAccounts(new Collection()->push($account))->setLimit($pageSize)->setPage($page)->withAccountInformation()->withCategoryInformation();
+            $collector->setAccounts(new Collection()->push($account))->setLimit($pageSize)->setPage($page)->withAccountInformation()->withCategoryInformation()->withBudgetInformation()->withBillInformation();
             $collector->setExpandGroupSearch(true);
             $groups    = $collector->getPaginatedGroups();
         }

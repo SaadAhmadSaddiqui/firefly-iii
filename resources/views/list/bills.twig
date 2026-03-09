@@ -1,18 +1,25 @@
-<div style="padding-left:8px;">
+<div style="padding-left:8px;display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
     {{ paginator.links('pagination.bootstrap-4')|raw }}
     {% include 'partials.per-page-toggle' %}
+    <div class="btn-group" id="column-toggle-container">
+        <button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown"
+                aria-haspopup="true" aria-expanded="false">
+            <span class="fa fa-columns"></span> Columns <span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-right"></ul>
+    </div>
 </div>
 <table class="table table-responsive table-hover" id="bill-sortable">
     <thead>
     <tr>
         <th class="hidden-sm hidden-xs">&nbsp;</th>
         <th class="hidden-sm hidden-xs">&nbsp;</th>
-        <th>{{ trans('list.name') }}</th>
-        <th class="hidden-sm hidden-md hidden-xs">{{ trans('list.linked_to_rules') }}</th>
-        <th style="text-align: right;">{{ trans('list.matchingAmount') }}</th>
-        <th class="hidden-sm hidden-xs">{{ trans('list.paid_current_period') }}</th>
-        <th class="hidden-sm hidden-xs">{{ trans('list.next_expected_match') }}</th>
-        <th class="hidden-sm hidden-xs">{{ trans('list.repeat_freq') }}</th>
+        <th data-col="name">{{ trans('list.name') }}</th>
+        <th class="hidden-sm hidden-md hidden-xs" data-col="linked_to_rules">{{ trans('list.linked_to_rules') }}</th>
+        <th style="text-align: right;" data-col="matching_amount">{{ trans('list.matchingAmount') }}</th>
+        <th class="hidden-sm hidden-xs" data-col="paid_current_period">{{ trans('list.paid_current_period') }}</th>
+        <th class="hidden-sm hidden-xs" data-col="next_expected_match">{{ trans('list.next_expected_match') }}</th>
+        <th class="hidden-sm hidden-xs" data-col="repeat_freq">{{ trans('list.repeat_freq') }}</th>
     </tr>
     </thead>
     {% for objectGroupOrder, objectGroup in bills %}
@@ -38,18 +45,17 @@
                                     href="{{ route('subscriptions.delete',entry.id) }}" class="btn btn-danger btn-xs"><span
                                         class="fa fa-fw fa-trash-o"></span></a></div>
                     </td>
-                    <td>
+                    <td data-col="name">
                         {% if not entry.active %}
                             <span class="fa fa-fw fa-ban"></span>
                         {% endif %}
                         <a href="{{ route('subscriptions.show',entry.id) }}" title="{{ entry.name }}">{{ entry.name }}</a>
-                        {# count attachments #}
                         {% if entry.attachments.count() > 0 %}
                             <span class="fa fa-paperclip"></span>
                         {% endif %}
 
                     </td>
-                    <td class="hidden-sm hidden-md hidden-xs rules">
+                    <td class="hidden-sm hidden-md hidden-xs rules" data-col="linked_to_rules">
                         {% if entry.rules|length > 0 %}
                             <ul class="list-unstyled">
                                 {% for rule in entry.rules %}
@@ -63,7 +69,7 @@
                             </ul>
                         {% endif %}
                     </td>
-                    <td style="text-align: right;">
+                    <td style="text-align: right;" data-col="matching_amount">
                 <span style="margin-right:5px;"
                       title="{{ formatAmountBySymbol(entry.amount_min, entry.currency_symbol, entry.currency_decimal_places, false)|escape }} -- {{ formatAmountBySymbol(entry.amount_max, entry.currency_symbol, entry.currency_decimal_places, false)|escape }}"
                 >
@@ -75,40 +81,28 @@
                 </span>
                     </td>
 
-                    {#
-                    paidDates = 0 (bill not paid in period)
-                    pay_dates  = 0 (bill not expected to be paid in this period)
-                    bill is active.
-                    #}
                     {% if entry.paid_dates|length == 0 and entry.pay_dates|length == 0 and entry.active %}
-                        <td class="paid_in_period text-muted">
+                        <td class="paid_in_period text-muted" data-col="paid_current_period">
                             {{ trans('firefly.not_expected_period') }}
                         </td>
-                        <td class="expected_in_period hidden-sm hidden-xs">
+                        <td class="expected_in_period hidden-sm hidden-xs" data-col="next_expected_match">
                             {% if entry.next_expected_match %}
                                 {{ formatDate(entry.next_expected_match, monthAndDayFormat) }}
                             {% endif %}
                         </td>
                     {% endif %}
 
-                    {#
-                    paid_dates = 0 (bill not paid in period)
-                    pay_dates  > 0 (bill IS expected to be paid in this period)
-                    bill is active
-                    first pay date is in the past.
-                    #}
                     {% if entry.paid_dates|length == 0 and entry.pay_dates|length > 0 and entry.active %}
-                        {% if entry.next_expected_match_diff == trans('firefly.not_expected_period') %} {# terrible code, you should sue me for this. #}
-                            <td class="paid_in_period text-muted">
+                        {% if entry.next_expected_match_diff == trans('firefly.not_expected_period') %}
+                            <td class="paid_in_period text-muted" data-col="paid_current_period">
                                 {{ entry.next_expected_match_diff }}
                             </td>
                         {% else %}
-                            <td class="paid_in_period text-warning">
+                            <td class="paid_in_period text-warning" data-col="paid_current_period">
                                 {{ entry.next_expected_match_diff }}
-                                <!-- {{ trans('firefly.bill_expected_date', {date: entry.next_expected_match_diff }) }} -->
                             </td>
                         {% endif %}
-                        <td class="expected_in_period hidden-sm hidden-xs">
+                        <td class="expected_in_period hidden-sm hidden-xs" data-col="next_expected_match">
 
                             {% for date in entry.pay_dates %}
                                 {{ formatDate(date, monthAndDayFormat) }}<br>
@@ -117,12 +111,8 @@
                         </td>
                     {% endif %}
 
-                    {#
-                    paid_dates >= 0 (bill is paid X times).
-                    Don't care about pay_dates.
-                    #}
                     {% if entry.paid_dates|length > 0 and entry.active %}
-                        <td class="paid_in_period text-success">
+                        <td class="paid_in_period text-success" data-col="paid_current_period">
 
                             {% for currentPaid in entry.paid_dates %}
                                 <a href="{{ route('transactions.show',currentPaid.transaction_group_id) }}">
@@ -131,7 +121,7 @@
                                 <br/>
                             {% endfor %}
                         </td>
-                        <td class="expected_in_period hidden-sm hidden-xs">
+                        <td class="expected_in_period hidden-sm hidden-xs" data-col="next_expected_match">
                             {% if entry.next_expected_match %}
                                     {{ formatDate(entry.next_expected_match, monthAndDayFormat) }}
                                 {% else %}
@@ -139,14 +129,13 @@
                             {% endif %}
                         </td>
                     {% endif %}
-                    {# bill is not active #}
                     {% if not entry.active %}
-                        <td class="paid_in_period text-muted">
+                        <td class="paid_in_period text-muted" data-col="paid_current_period">
                             ~
                         </td>
-                        <td class="expected_in_period text-muted hidden-sm hidden-xs">~</td>
+                        <td class="expected_in_period text-muted hidden-sm hidden-xs" data-col="next_expected_match">~</td>
                     {% endif %}
-                    <td class="hidden-sm hidden-xs">
+                    <td class="hidden-sm hidden-xs" data-col="repeat_freq">
                         {{ ('repeat_freq_'~entry.repeat_freq)|_ }}
                         {% if entry.skip > 0 %}
                             {{ 'skips_over'|_ }} {{ entry.skip }}
@@ -177,48 +166,51 @@
             {% for sum in sums[objectGroupOrder] %}
                 {% if '0' != sum.avg %}
                     <tr>
-                        <td class="hidden-sm hidden-xs">&nbsp;</td> <!-- handle -->
-                        <td class="hidden-sm hidden-xs">&nbsp;</td> <!-- buttons -->
-                        <td colspan="2" style="text-align: right;"> <!-- title -->
+                        <td class="hidden-sm hidden-xs">&nbsp;</td>
+                        <td class="hidden-sm hidden-xs">&nbsp;</td>
+                        <td data-col="name" style="text-align: right;">
                             <small>{{ 'sum'|_ }} ({{ sum.currency_name }}) ({{ 'active_exp_bills_only'|_ }})</small>
                         </td>
-                        <td style="text-align: right;"> <!-- amount -->
+                        <td data-col="linked_to_rules" class="hidden-sm hidden-md hidden-xs">&nbsp;</td>
+                        <td style="text-align: right;" data-col="matching_amount">
                             {{ formatAmountBySymbol(sum.avg, sum.currency_symbol, sum.currency_decimal_places) }}
                         </td>
-                        <td>&nbsp;</td> <!-- paid in period -->
-                        <td class="hidden-sm hidden-xs">&nbsp;</td> <!-- next expected match -->
-                        <td class="hidden-sm hidden-xs">&nbsp;</td><!-- repeats -->
+                        <td data-col="paid_current_period">&nbsp;</td>
+                        <td class="hidden-sm hidden-xs" data-col="next_expected_match">&nbsp;</td>
+                        <td class="hidden-sm hidden-xs" data-col="repeat_freq">&nbsp;</td>
                     </tr>
                 {% endif %}
                 {% if '0' != sum.total_left_to_pay %}
                     <tr>
-                        <td class="hidden-sm hidden-xs">&nbsp;</td> <!-- handle -->
-                        <td class="hidden-sm hidden-xs">&nbsp;</td> <!-- buttons -->
-                        <td colspan="2" style="text-align: right;"> <!-- title -->
+                        <td class="hidden-sm hidden-xs">&nbsp;</td>
+                        <td class="hidden-sm hidden-xs">&nbsp;</td>
+                        <td data-col="name" style="text-align: right;">
                             <small>{{ 'sum'|_ }} ({{ sum.currency_name }}) ({{ 'left_to_pay_active_bills'|_ }})</small>
                         </td>
-                        <td style="text-align: right;"> <!-- amount -->
+                        <td data-col="linked_to_rules" class="hidden-sm hidden-md hidden-xs">&nbsp;</td>
+                        <td style="text-align: right;" data-col="matching_amount">
                             {{ formatAmountBySymbol(sum.total_left_to_pay, sum.currency_symbol, sum.currency_decimal_places) }}
                         </td>
-                        <td>&nbsp;</td> <!-- paid in period -->
-                        <td class="hidden-sm hidden-xs">&nbsp;</td> <!-- next expected match -->
-                        <td class="hidden-sm hidden-xs">&nbsp;</td><!-- repeats -->
+                        <td data-col="paid_current_period">&nbsp;</td>
+                        <td class="hidden-sm hidden-xs" data-col="next_expected_match">&nbsp;</td>
+                        <td class="hidden-sm hidden-xs" data-col="repeat_freq">&nbsp;</td>
                     </tr>
                 {% endif %}
                 {% if '0' != sum.per_period %}
                     <tr>
-                        <td class="hidden-sm hidden-xs">&nbsp;</td> <!-- handle -->
-                        <td class="hidden-sm hidden-xs">&nbsp;</td> <!-- buttons -->
-                        <td colspan="2" style="text-align: right;"> <!-- title -->
+                        <td class="hidden-sm hidden-xs">&nbsp;</td>
+                        <td class="hidden-sm hidden-xs">&nbsp;</td>
+                        <td data-col="name" style="text-align: right;">
                             <small>{{ ('per_period_sum_'~sum.period)|_ }} ({{ sum.currency_name }})
                                 ({{ 'active_bills_only'|_ }})</small>
                         </td>
-                        <td style="text-align: right;"> <!-- amount -->
+                        <td data-col="linked_to_rules" class="hidden-sm hidden-md hidden-xs">&nbsp;</td>
+                        <td style="text-align: right;" data-col="matching_amount">
                             {{ formatAmountBySymbol(sum.per_period, sum.currency_symbol, sum.currency_decimal_places) }}
                         </td>
-                        <td>&nbsp;</td> <!-- paid in period -->
-                        <td class="hidden-sm hidden-xs">&nbsp;</td> <!-- next expected match -->
-                        <td class="hidden-sm hidden-xs">&nbsp;</td><!-- repeats -->
+                        <td data-col="paid_current_period">&nbsp;</td>
+                        <td class="hidden-sm hidden-xs" data-col="next_expected_match">&nbsp;</td>
+                        <td class="hidden-sm hidden-xs" data-col="repeat_freq">&nbsp;</td>
                     </tr>
                 {% endif %}
             {% endfor %}
@@ -233,33 +225,35 @@
         {% for sum in totals %}
             {% if '0' != sum.avg %}
                 <tr>
-                    <td class="hidden-sm hidden-xs">&nbsp;</td> <!-- handle -->
-                    <td class="hidden-sm hidden-xs">&nbsp;</td> <!-- buttons -->
-                    <td colspan="2" style="text-align: right;"> <!-- title -->
+                    <td class="hidden-sm hidden-xs">&nbsp;</td>
+                    <td class="hidden-sm hidden-xs">&nbsp;</td>
+                    <td data-col="name" style="text-align: right;">
                         <small>{{ 'sum'|_ }} ({{ sum.currency_name }}) ({{ 'active_exp_bills_only_total'|_ }})</small>
                     </td>
-                    <td style="text-align: right;"> <!-- amount -->
+                    <td data-col="linked_to_rules" class="hidden-sm hidden-md hidden-xs">&nbsp;</td>
+                    <td style="text-align: right;" data-col="matching_amount">
                         {{ formatAmountBySymbol(sum.avg, sum.currency_symbol, sum.currency_decimal_places) }}
                     </td>
-                    <td>&nbsp;</td> <!-- paid in period -->
-                    <td class="hidden-sm hidden-xs">&nbsp;</td> <!-- next expected match -->
-                    <td class="hidden-sm hidden-xs">&nbsp;</td><!-- repeats -->
+                    <td data-col="paid_current_period">&nbsp;</td>
+                    <td class="hidden-sm hidden-xs" data-col="next_expected_match">&nbsp;</td>
+                    <td class="hidden-sm hidden-xs" data-col="repeat_freq">&nbsp;</td>
                 </tr>
             {% endif %}
             {% if '0' != sum.per_period %}
                 <tr>
-                    <td class="hidden-sm hidden-xs">&nbsp;</td> <!-- handle -->
-                    <td class="hidden-sm hidden-xs">&nbsp;</td> <!-- buttons -->
-                    <td colspan="2" style="text-align: right;"> <!-- title -->
+                    <td class="hidden-sm hidden-xs">&nbsp;</td>
+                    <td class="hidden-sm hidden-xs">&nbsp;</td>
+                    <td data-col="name" style="text-align: right;">
                         <small>{{ ('per_period_sum_'~sum.period)|_ }} ({{ sum.currency_name }})
                             ({{ 'active_bills_only_total'|_ }})</small>
                     </td>
-                    <td style="text-align: right;"> <!-- amount -->
+                    <td data-col="linked_to_rules" class="hidden-sm hidden-md hidden-xs">&nbsp;</td>
+                    <td style="text-align: right;" data-col="matching_amount">
                         {{ formatAmountBySymbol(sum.per_period, sum.currency_symbol, sum.currency_decimal_places) }}
                     </td>
-                    <td>&nbsp;</td> <!-- paid in period -->
-                    <td class="hidden-sm hidden-xs">&nbsp;</td> <!-- next expected match -->
-                    <td class="hidden-sm hidden-xs">&nbsp;</td><!-- repeats -->
+                    <td data-col="paid_current_period">&nbsp;</td>
+                    <td class="hidden-sm hidden-xs" data-col="next_expected_match">&nbsp;</td>
+                    <td class="hidden-sm hidden-xs" data-col="repeat_freq">&nbsp;</td>
                 </tr>
             {% endif %}
         {% endfor %}
@@ -271,3 +265,17 @@
     {{ paginator.links('pagination.bootstrap-4')|raw }}
     {% include 'partials.per-page-toggle' %}
 </div>
+<script type="text/javascript" src="v1/js/ff/column-toggle.js?v={{ FF_BUILD_TIME }}" nonce="{{ JS_NONCE }}"></script>
+<script type="text/javascript" nonce="{{ JS_NONCE }}">
+    (function () {
+        var colColumns = [
+            { key: 'name', label: '{{ trans("list.name") }}', visible: true },
+            { key: 'linked_to_rules', label: '{{ trans("list.linked_to_rules") }}', visible: true },
+            { key: 'matching_amount', label: '{{ trans("list.matchingAmount") }}', visible: true },
+            { key: 'paid_current_period', label: '{{ trans("list.paid_current_period") }}', visible: true },
+            { key: 'next_expected_match', label: '{{ trans("list.next_expected_match") }}', visible: true },
+            { key: 'repeat_freq', label: '{{ trans("list.repeat_freq") }}', visible: true },
+        ];
+        initColumnToggle('#bill-sortable', 'ff_cols_bills', colColumns);
+    })();
+</script>

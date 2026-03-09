@@ -266,6 +266,7 @@ class TagController extends Controller
                 ->setTag($tag)
                 ->withBudgetInformation()
                 ->withCategoryInformation()
+                ->withBillInformation()
                 ->withAttachmentInformation()
             ;
             $groups    = $collector->getPaginatedGroups();
@@ -327,6 +328,7 @@ class TagController extends Controller
                 ->setTag($tag)
                 ->withBudgetInformation()
                 ->withCategoryInformation()
+                ->withBillInformation()
                 ->withAttachmentInformation()
             ;
             $groups    = $collector->getPaginatedGroups();

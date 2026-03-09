@@ -20,6 +20,7 @@ trait TransactionFiltering
         'filter_destination' => 'destination_account_contains',
         'filter_category'    => 'category_contains',
         'filter_budget'      => 'budget_contains',
+        'filter_bill'        => 'bill_contains',
     ];
 
     protected function hasTransactionFilters(Request $request): bool

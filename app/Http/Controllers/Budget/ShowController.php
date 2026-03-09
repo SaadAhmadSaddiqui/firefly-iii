@@ -62,6 +62,7 @@ class ShowController extends Controller
     public function __construct()
     {
         app('view')->share('showCategory', true);
+        app('view')->share('showBill', true);
         parent::__construct();
         $this->middleware(function ($request, $next) {
             app('view')->share('title', (string) trans('firefly.budgets'));

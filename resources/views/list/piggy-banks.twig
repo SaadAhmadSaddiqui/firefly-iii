@@ -1,13 +1,24 @@
+<div style="padding-left:8px;display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
+    <div class="btn-group" id="column-toggle-container">
+        <button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown"
+                aria-haspopup="true" aria-expanded="false">
+            <span class="fa fa-columns"></span> Columns <span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-right"></ul>
+    </div>
+</div>
 <table class="table table-hover table-condensed" id="piggy-sortable">
     <thead>
     <tr>
         <th colspan="2">&nbsp;</th>
-        <th>{{ 'piggy_bank'|_ }}</th>
-        <th style="text-align: right;">{{ 'saved_so_far'|_ }}</th>
-        <th colspan="3" class="hidden-sm hidden-xs">&nbsp;</th>
-        <th style="text-align: right;" class="hidden-sm hidden-xs">{{ 'target_amount'|_ }}</th>
-        <th style="text-align: right;" class="hidden-sm hidden-xs">{{ 'left_to_save'|_ }}</th>
-        <th style="text-align: right;" class="hidden-sm hidden-xs">{{ 'suggested_savings_per_month'|_ }}</th>
+        <th data-col="name">{{ 'piggy_bank'|_ }}</th>
+        <th style="text-align: right;" data-col="saved">{{ 'saved_so_far'|_ }}</th>
+        <th class="hidden-sm hidden-xs" data-col="progress">&nbsp;</th>
+        <th class="hidden-sm hidden-xs" data-col="progress">&nbsp;</th>
+        <th class="hidden-sm hidden-xs" data-col="progress">&nbsp;</th>
+        <th style="text-align: right;" class="hidden-sm hidden-xs" data-col="target">{{ 'target_amount'|_ }}</th>
+        <th style="text-align: right;" class="hidden-sm hidden-xs" data-col="left_to_save">{{ 'left_to_save'|_ }}</th>
+        <th style="text-align: right;" class="hidden-sm hidden-xs" data-col="save_per_month">{{ 'suggested_savings_per_month'|_ }}</th>
     </tr>
     </thead>
 
@@ -39,13 +50,13 @@
                             <a href="{{ route('piggy-banks.delete', piggy.id) }}" class="btn btn-danger btn-xs"><span class="fa fa-trash fa-fw"></span></a>
                         </div>
                     </td>
-                    <td>
+                    <td data-col="name">
                         <a href="{{ route('piggy-banks.show', piggy.id) }}" title="{{ piggy.account_name }}">{{ piggy.name }}</a>
                         {% if piggy.attachments.count() > 0 %}
                             <span class="fa fa-fw fa-paperclip"></span>
                         {% endif %}
                     </td>
-                    <td style="text-align: right;" class="piggySaved">
+                    <td style="text-align: right;" class="piggySaved" data-col="saved">
                     <span title="Saved so far" style="text-align:right;">
                         {{ formatAmountBySymbol(piggy.current_amount,piggy.currency_symbol,piggy.currency_decimal_places) }}
                         {% if convertToPrimary and piggy.currency_id != primaryCurrency.id and null != piggy.pc_current_amount %}
@@ -53,14 +64,14 @@
                         {% endif %}
                     </span>
                     </td>
-                    <td class="hidden-sm hidden-xs" style="text-align:right;width:40px;">
+                    <td class="hidden-sm hidden-xs" style="text-align:right;width:40px;" data-col="progress">
                         {% if piggy.current_amount > 0 %}
                             <a href="{{ route('piggy-banks.remove-money', piggy.id) }}" class="btn btn-default btn-xs removeMoney" data-id="{{ piggy.id }}">
                                 <span data-id="{{ piggy.id }}" class="fa fa-minus"></span></a>
                         {% endif %}
                     </td>
 
-                    <td class="hidden-sm hidden-xs piggyBar">
+                    <td class="hidden-sm hidden-xs piggyBar" data-col="progress">
                         {% if null != piggy.percentage %}
                         <div class="progress progress" style="margin-bottom:0;">
                             <div
@@ -80,14 +91,14 @@
                     </td>
 
 
-                    <td class="hidden-sm hidden-xs" style="width:40px;">
+                    <td class="hidden-sm hidden-xs" style="width:40px;" data-col="progress">
 
                         {% if piggy.left_to_save > 0 or null == piggy.left_to_save %}
                             <a href="{{ route('piggy-banks.add-money', piggy.id) }}" class="btn btn-default btn-xs addMoney" data-id="{{ piggy.id }}">
                                 <span data-id="{{ piggy.id }}" class="fa fa-plus"></span></a>
                         {% endif %}
                     </td>
-                    <td class="hidden-sm hidden-xs" style="text-align:right;">
+                    <td class="hidden-sm hidden-xs" style="text-align:right;" data-col="target">
                         {% if null != piggy.target_amount and 0 != piggy.target_amount %}
                             <span title="{{ 'target_amount'|_ }}">{{ formatAmountBySymbol(piggy.target_amount,piggy.currency_symbol,piggy.currency_decimal_places) }}</span>
                             {% if convertToPrimary and piggy.currency_id != primaryCurrency.id and null != piggy.pc_target_amount %}
@@ -95,7 +106,7 @@
                             {% endif %}
                         {% endif %}
                     </td>
-                    <td class="hidden-sm hidden-xs" style="text-align:right;">
+                    <td class="hidden-sm hidden-xs" style="text-align:right;" data-col="left_to_save">
                         {% if piggy.left_to_save > 0 %}
                             <span title="{{ 'left_to_save'|_ }}">{{ formatAmountBySymbol(piggy.left_to_save,piggy.currency_symbol,piggy.currency_decimal_places) }}</span>
                             {% if convertToPrimary and piggy.currency_id != primaryCurrency.id and null != piggy.pc_left_to_save %}
@@ -103,7 +114,7 @@
                             {% endif %}
                         {% endif %}
                     </td>
-                    <td class="hidden-sm hidden-xs" style="text-align:right;">
+                    <td class="hidden-sm hidden-xs" style="text-align:right;" data-col="save_per_month">
                         {% if piggy.target_date and piggy.save_per_month %}
                             {{ formatAmountBySymbol(piggy.save_per_month, piggy.currency_symbol, piggy.currency_decimal_places) }}
                             {% if convertToPrimary and piggy.currency_id != primaryCurrency.id and null != piggy.pc_save_per_month %}
@@ -116,28 +127,28 @@
             <tr>
                 <td class="visible-xs visible-sm hidden-md hidden-lg">&nbsp;</td>
                 <td class="visible-xs visible-sm hidden-md hidden-lg">&nbsp;</td>
-                <td class="hidden-sm hidden-xs">&nbsp;</td> {# handle #}
-                <td class="hidden-sm hidden-xs">&nbsp;</td> {# buttons #}
-                <td>&nbsp;</td>
-                <td style="text-align: right;">
+                <td class="hidden-sm hidden-xs">&nbsp;</td>
+                <td class="hidden-sm hidden-xs">&nbsp;</td>
+                <td data-col="name">&nbsp;</td>
+                <td style="text-align: right;" data-col="saved">
                     {% for sum in objectGroup.sums %}
                         {{ formatAmountBySymbol(sum.saved, sum.currency_symbol, sum.currency_decimal_places) }}<br />
                     {% endfor %}
                     </td>
-                <td class="hidden-sm hidden-xs">&nbsp;</td> {# remove money #}
-                <td class="hidden-sm hidden-xs">&nbsp;</td> {# progress#}
-                <td class="hidden-sm hidden-xs">&nbsp;</td> {# add money #}
-                <td class="hidden-sm hidden-xs" style="text-align: right;">
+                <td class="hidden-sm hidden-xs" data-col="progress">&nbsp;</td>
+                <td class="hidden-sm hidden-xs" data-col="progress">&nbsp;</td>
+                <td class="hidden-sm hidden-xs" data-col="progress">&nbsp;</td>
+                <td class="hidden-sm hidden-xs" style="text-align: right;" data-col="target">
                     {% for sum in objectGroup.sums %}
                         {{ formatAmountBySymbol(sum.target, sum.currency_symbol, sum.currency_decimal_places) }}<br />
                     {% endfor %}
                 </td>
-                <td class="hidden-sm hidden-xs" style="text-align: right;">
+                <td class="hidden-sm hidden-xs" style="text-align: right;" data-col="left_to_save">
                     {% for sum in objectGroup.sums %}
                         {{ formatAmountBySymbol(sum.left_to_save, sum.currency_symbol, sum.currency_decimal_places) }}<br />
                     {% endfor %}
                 </td>
-                <td class="hidden-sm hidden-xs" style="text-align: right;">
+                <td class="hidden-sm hidden-xs" style="text-align: right;" data-col="save_per_month">
                     {% for sum in objectGroup.sums %}
                         {{ formatAmountBySymbol(sum.save_per_month, sum.currency_symbol, sum.currency_decimal_places) }}<br />
                     {% endfor %}
@@ -147,3 +158,17 @@
         {% endif %}
     {% endfor %}
 </table>
+<script type="text/javascript" src="v1/js/ff/column-toggle.js?v={{ FF_BUILD_TIME }}" nonce="{{ JS_NONCE }}"></script>
+<script type="text/javascript" nonce="{{ JS_NONCE }}">
+    (function () {
+        var colColumns = [
+            { key: 'name', label: '{{ "piggy_bank"|_ }}', visible: true },
+            { key: 'saved', label: '{{ "saved_so_far"|_ }}', visible: true },
+            { key: 'progress', label: 'Progress', visible: true },
+            { key: 'target', label: '{{ "target_amount"|_ }}', visible: true },
+            { key: 'left_to_save', label: '{{ "left_to_save"|_ }}', visible: true },
+            { key: 'save_per_month', label: '{{ "suggested_savings_per_month"|_ }}', visible: true },
+        ];
+        initColumnToggle('#piggy-sortable', 'ff_cols_piggy_banks', colColumns);
+    })();
+</script>

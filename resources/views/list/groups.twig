@@ -17,27 +17,25 @@
     <button type="button" class="btn btn-default btn-sm" id="clear-filters">
         <span class="fa fa-times"></span> Clear
     </button>
+    <div class="btn-group" id="column-toggle-container">
+        <button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown"
+                aria-haspopup="true" aria-expanded="false">
+            <span class="fa fa-columns"></span> Columns <span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-right"></ul>
+    </div>
 </div>
-<table class="table table-condensed table-hover table-responsive">
+<table class="table table-condensed table-hover table-responsive" id="transaction-list-table">
     <thead>
+    {% set optionalListCols = (showCategory|default(false) ? 1 : 0) + (showBudget|default(false) ? 1 : 0) + (showBill|default(false) ? 1 : 0) %}
     <tr>
-        {% if showCategory or showBudget %}
-            <td colspan="7" class="no-margin-pagination">
-                {{ groups.links('pagination.bootstrap-4')|raw }}
-                {% if groups.total() > 0 %}
-                    <span class="text-muted small" style="margin-left:10px;">Showing {{ groups.firstItem() }}–{{ groups.lastItem() }} of {{ groups.total() }}</span>
-                    {% include 'partials.per-page-toggle' %}
-                {% endif %}
-            </td>
-        {% else %}
-            <td colspan="6" class="no-margin-pagination">
-                {{ groups.links('pagination.bootstrap-4')|raw }}
-                {% if groups.total() > 0 %}
-                    <span class="text-muted small" style="margin-left:10px;">Showing {{ groups.firstItem() }}–{{ groups.lastItem() }} of {{ groups.total() }}</span>
-                    {% include 'partials.per-page-toggle' %}
-                {% endif %}
-            </td>
-        {% endif %}
+        <td colspan="{{ 6 + optionalListCols }}" class="no-margin-pagination">
+            {{ groups.links('pagination.bootstrap-4')|raw }}
+            {% if groups.total() > 0 %}
+                <span class="text-muted small" style="margin-left:10px;">Showing {{ groups.firstItem() }}–{{ groups.lastItem() }} of {{ groups.total() }}</span>
+                {% include 'partials.per-page-toggle' %}
+            {% endif %}
+        </td>
         <td colspan="1" class="hidden-xs">
             <!-- Single button -->
             <div class="btn-group btn-group-xs action-menu pull-right" style="display: none;">
@@ -62,31 +60,34 @@
         </td>
     </tr>
     <tr>
-        <th class="hidden-xs">&nbsp;</th>
-        <th>{{ trans('list.description') }}</th>
-        <th>{{ trans('list.amount') }}</th>
+        <th class="hidden-xs" data-col="type">&nbsp;</th>
+        <th data-col="description">{{ trans('list.description') }}</th>
+        <th data-col="amount">{{ trans('list.amount') }}</th>
         {% if fireflyiiiconfig('use_running_balance', true) %}
-        <th>{{ trans('list.running_balance') }}</th>
+        <th data-col="running_balance">{{ trans('list.running_balance') }}</th>
         {% endif %}
-        <th>{{ trans('list.date') }}</th>
-        <th>{{ trans('list.source_account') }}</th>
-        <th>{{ trans('list.destination_account') }}</th>
+        <th data-col="date">{{ trans('list.date') }}</th>
+        <th data-col="source">{{ trans('list.source_account') }}</th>
+        <th data-col="destination">{{ trans('list.destination_account') }}</th>
         {% if showCategory %}
-            <th class="hidden-xs">{{ trans('list.category') }}</th>
+            <th class="hidden-xs" data-col="category">{{ trans('list.category') }}</th>
         {% endif %}
         {% if showBudget %}
-            <th class="hidden-xs">{{ trans('list.budget') }}</th>
+            <th class="hidden-xs" data-col="budget">{{ trans('list.budget') }}</th>
+        {% endif %}
+        {% if showBill|default(false) %}
+            <th class="hidden-xs" data-col="bill">{{ trans('list.bill') }}</th>
         {% endif %}
         <th class="hidden-xs">&nbsp;</th><!-- actions -->
         <th class="hidden-xs">&nbsp;</th><!-- checkbox -->
     </tr>
     <tr class="filter-row" style="display:none;background:rgba(128,128,128,0.08);">
-        <td class="hidden-xs">&nbsp;</td>
-        <td>
+        <td class="hidden-xs" data-col="type">&nbsp;</td>
+        <td data-col="description">
             <input type="text" class="form-control input-sm filter-input" id="filter_description"
                    placeholder="{{ trans('list.description') }}" value="{{ filters.filter_description|default('') }}">
         </td>
-        <td style="min-width:160px;">
+        <td style="min-width:160px;" data-col="amount">
             <div style="display:flex;gap:2px;">
                 <input type="number" step="0.01" class="form-control input-sm filter-input" id="filter_amount_min"
                        placeholder="Min" value="{{ filters.filter_amount_min|default('') }}" style="width:50%;">
@@ -95,9 +96,9 @@
             </div>
         </td>
         {% if fireflyiiiconfig('use_running_balance', true) %}
-        <td>&nbsp;</td>
+        <td data-col="running_balance">&nbsp;</td>
         {% endif %}
-        <td style="min-width:180px;">
+        <td style="min-width:180px;" data-col="date">
             <div style="display:flex;gap:2px;">
                 <input type="date" class="form-control input-sm filter-input" id="filter_date_from"
                        value="{{ filters.filter_date_from|default('') }}" style="width:50%;">
@@ -105,24 +106,30 @@
                        value="{{ filters.filter_date_to|default('') }}" style="width:50%;">
             </div>
         </td>
-        <td>
+        <td data-col="source">
             <input type="text" class="form-control input-sm filter-input" id="filter_source"
                    placeholder="{{ trans('list.source_account') }}" value="{{ filters.filter_source|default('') }}">
         </td>
-        <td>
+        <td data-col="destination">
             <input type="text" class="form-control input-sm filter-input" id="filter_destination"
                    placeholder="{{ trans('list.destination_account') }}" value="{{ filters.filter_destination|default('') }}">
         </td>
         {% if showCategory %}
-            <td class="hidden-xs">
+            <td class="hidden-xs" data-col="category">
                 <input type="text" class="form-control input-sm filter-input" id="filter_category"
                        placeholder="{{ trans('list.category') }}" value="{{ filters.filter_category|default('') }}">
             </td>
         {% endif %}
         {% if showBudget %}
-            <td class="hidden-xs">
+            <td class="hidden-xs" data-col="budget">
                 <input type="text" class="form-control input-sm filter-input" id="filter_budget"
                        placeholder="{{ trans('list.budget') }}" value="{{ filters.filter_budget|default('') }}">
+            </td>
+        {% endif %}
+        {% if showBill|default(false) %}
+            <td class="hidden-xs" data-col="bill">
+                <input type="text" class="form-control input-sm filter-input" id="filter_bill"
+                       placeholder="{{ trans('list.bill') }}" value="{{ filters.filter_bill|default('') }}">
             </td>
         {% endif %}
         <td class="hidden-xs">&nbsp;</td>
@@ -133,13 +140,14 @@
     {% for group in groups %}
         {% if group.count > 1 %}
             <tr style="border-top:1px #aaa solid;">
-                <td colspan="2" style="border-top:1px #aaa solid;">
+                <td style="border-top:1px #aaa solid;" class="hidden-xs" data-col="type">&nbsp;</td>
+                <td style="border-top:1px #aaa solid;" data-col="description">
                     <small><strong>
                             <a href="{{ route('transactions.show', [group.id]) }}"
                                title="{{ group.title }}">{{ group.title }}</a>
                         </strong></small>
                 </td>
-                <td colspan="1" style="text-align:right;border-top:1px #aaa solid;">
+                <td style="text-align:right;border-top:1px #aaa solid;" data-col="amount">
                     {% for sum in group.sums %}
                         {% if group.transaction_type == 'Deposit' %}
                             {{ formatAmountBySymbol(sum.amount*-1, sum.currency_symbol, sum.currency_decimal_places) }}
@@ -165,13 +173,22 @@
                         {% endif %}
                     {% endfor %}
                 </td>
-                <!-- column to span accounts + extra fields -->
-                {% if showCategory or showBudget %}
-                    <td style="border-top:1px #aaa solid;" colspan="3">&nbsp;</td>
-                {% else %}
-                    <td style="border-top:1px #aaa solid;" colspan="2">&nbsp;</td>
+                {% if fireflyiiiconfig('use_running_balance', true) %}
+                <td style="border-top:1px #aaa solid;" data-col="running_balance">&nbsp;</td>
                 {% endif %}
-                <td style="border-top:1px #aaa solid;" colspan="2" class="hidden-xs">
+                <td style="border-top:1px #aaa solid;" data-col="date">&nbsp;</td>
+                <td style="border-top:1px #aaa solid;" data-col="source">&nbsp;</td>
+                <td style="border-top:1px #aaa solid;" data-col="destination">&nbsp;</td>
+                {% if showCategory %}
+                    <td style="border-top:1px #aaa solid;" class="hidden-xs" data-col="category">&nbsp;</td>
+                {% endif %}
+                {% if showBudget %}
+                    <td style="border-top:1px #aaa solid;" class="hidden-xs" data-col="budget">&nbsp;</td>
+                {% endif %}
+                {% if showBill|default(false) %}
+                    <td style="border-top:1px #aaa solid;" class="hidden-xs" data-col="bill">&nbsp;</td>
+                {% endif %}
+                <td style="border-top:1px #aaa solid;" class="hidden-xs">
                     <div class="btn-group btn-group-xs pull-right">
                         <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"
                                 aria-haspopup="true" aria-expanded="false">
@@ -198,7 +215,7 @@
             {% endif %}
             <tr data-date="{{ transaction.date.format('Y-m-d') }}" data-count="{{ group.count }}"
                 data-id="{{ group.id }}">
-                <td style=" {{ style|raw }}" class="hidden-xs">
+                <td style=" {{ style|raw }}" class="hidden-xs" data-col="type">
                     {% if transaction.transaction_type_type == 'Withdrawal' %}
                         <span class="fa fa-long-arrow-left fa-fw"
                               title="{{ trans('firefly.Withdrawal') }}"></span>
@@ -227,7 +244,7 @@
                     {% endif %}
 
                 </td>
-                <td style=" {{ style|raw }}">
+                <td style=" {{ style|raw }}" data-col="description">
                     {% if transaction.reconciled %}
                         <span class="fa fa-check"></span>
                     {% endif %}
@@ -242,7 +259,7 @@
                     </a>
                     {% endif %}
                 </td>
-                <td style="{{ style|raw }};text-align:right">
+                <td style="{{ style|raw }};text-align:right" data-col="amount">
 
                     {#  deposit #}
                     {% if transaction.transaction_type_type == 'Deposit' %}
@@ -355,7 +372,7 @@
                     {% endif %}
                 </td>
                 {% if (fireflyiiiconfig('use_running_balance', true)) %}
-                <td style="{{ style|raw }};text-align:right">
+                <td style="{{ style|raw }};text-align:right" data-col="running_balance">
                     {# RUNNING BALANCE #}
                     {% if (null == transaction.balance_dirty or false == transaction.balance_dirty) and null != transaction.destination_balance_after and null != transaction.source_balance_after %}
                         {% if transaction.transaction_type_type == 'Deposit' %}
@@ -415,10 +432,10 @@
                     {% endif %}
                 </td>
                 {% endif %}
-                <td style=" {{ style|raw }}">
+                <td style=" {{ style|raw }}" data-col="date">
                     {{ transaction.date.isoFormat(monthAndDayFormat) }}
                 </td>
-                <td style=" {{ style|raw }}">
+                <td style=" {{ style|raw }}" data-col="source">
                     {% if 'Cash account' == transaction.source_account_type %}
                         <span class="text-success">({{ 'cash'|_ }})</span>
                     {% else %}
@@ -426,7 +443,7 @@
                            title="{{ transaction.source_account_iban|default(transaction.source_account_name) }}">{{ transaction.source_account_name }}</a>
                     {% endif %}
                 </td>
-                <td style=" {{ style|raw }}">
+                <td style=" {{ style|raw }}" data-col="destination">
                     {% if 'Cash account' == transaction.destination_account_type %}
                         <span class="text-success">({{ 'cash'|_ }})</span>
                     {% else %}
@@ -435,7 +452,7 @@
                     {% endif %}
                 </td>
                 {% if showCategory %}
-                    <td style=" {{ style|raw }}" class="hidden-xs">
+                    <td style=" {{ style|raw }}" class="hidden-xs" data-col="category">
                         {% if transaction.category_id %}
                             <a href="{{ route('categories.show', [transaction.category_id]) }}"
                                title="{{ transaction.category_name }}">{{ transaction.category_name }}</a>
@@ -443,10 +460,18 @@
                     </td>
                 {% endif %}
                 {% if showBudget %}
-                    <td style=" {{ style|raw }}" class="hidden-xs">
+                    <td style=" {{ style|raw }}" class="hidden-xs" data-col="budget">
                         {% if transaction.budget_id %}
                             <a href="{{ route('budgets.show', [transaction.budget_id]) }}"
                                title="{{ transaction.budget_name }}">{{ transaction.budget_name }}</a>
+                        {% endif %}
+                    </td>
+                {% endif %}
+                {% if showBill|default(false) %}
+                    <td style=" {{ style|raw }}" class="hidden-xs" data-col="bill">
+                        {% if transaction.bill_id %}
+                            <a href="{{ route('subscriptions.show', [transaction.bill_id]) }}"
+                               title="{{ transaction.bill_name|default('') }}">{{ transaction.bill_name|default('') }}</a>
                         {% endif %}
                     </td>
                 {% endif %}
@@ -521,9 +546,9 @@
     {% endfor %}
     {% if pageSums|length > 0 %}
     <tr style="border-top:2px solid rgba(128,128,128,0.4);">
-        <td class="hidden-xs">&nbsp;</td>
-        <td><strong>Page Total</strong></td>
-        <td style="text-align:right">
+        <td class="hidden-xs" data-col="type">&nbsp;</td>
+        <td data-col="description"><strong>Page Total</strong></td>
+        <td style="text-align:right" data-col="amount">
             <strong>
             {% for sumKey, total in pageSums %}
                 {% set parts = sumKey|split('||') %}
@@ -532,9 +557,21 @@
             </strong>
         </td>
         {% if fireflyiiiconfig('use_running_balance', true) %}
-        <td>&nbsp;</td>
+        <td data-col="running_balance">&nbsp;</td>
         {% endif %}
-        <td colspan="{{ (showCategory|default(false) or showBudget|default(false)) ? 5 : 4 }}">&nbsp;</td>
+        <td data-col="date">&nbsp;</td>
+        <td data-col="source">&nbsp;</td>
+        <td data-col="destination">&nbsp;</td>
+        {% if showCategory|default(false) %}
+        <td class="hidden-xs" data-col="category">&nbsp;</td>
+        {% endif %}
+        {% if showBudget|default(false) %}
+        <td class="hidden-xs" data-col="budget">&nbsp;</td>
+        {% endif %}
+        {% if showBill|default(false) %}
+        <td class="hidden-xs" data-col="bill">&nbsp;</td>
+        {% endif %}
+        <td class="hidden-xs">&nbsp;</td>
         <td class="hidden-xs">&nbsp;</td>
     </tr>
     {% endif %}
@@ -560,23 +597,13 @@
         </td>
     </tr>
     <tr>
-        {% if showCategory or showBudget %}
-            <td colspan="9" class="no-margin-pagination">
-                {{ groups.links('pagination.bootstrap-4')|raw }}
-                {% if groups.total() > 0 %}
-                    <span class="text-muted small" style="margin-left:10px;">Showing {{ groups.firstItem() }}–{{ groups.lastItem() }} of {{ groups.total() }}</span>
-                    {% include 'partials.per-page-toggle' %}
-                {% endif %}
-            </td>
-        {% else %}
-            <td colspan="8" class="no-margin-pagination">
-                {{ groups.links('pagination.bootstrap-4')|raw }}
-                {% if groups.total() > 0 %}
-                    <span class="text-muted small" style="margin-left:10px;">Showing {{ groups.firstItem() }}–{{ groups.lastItem() }} of {{ groups.total() }}</span>
-                    {% include 'partials.per-page-toggle' %}
-                {% endif %}
-            </td>
-        {% endif %}
+        <td colspan="{{ 8 + optionalListCols }}" class="no-margin-pagination">
+            {{ groups.links('pagination.bootstrap-4')|raw }}
+            {% if groups.total() > 0 %}
+                <span class="text-muted small" style="margin-left:10px;">Showing {{ groups.firstItem() }}–{{ groups.lastItem() }} of {{ groups.total() }}</span>
+                {% include 'partials.per-page-toggle' %}
+            {% endif %}
+        </td>
     </tr>
     </tfoot>
 </table>
@@ -731,7 +758,7 @@
     var filterParamNames = [
         'filter_description', 'filter_amount_min', 'filter_amount_max',
         'filter_date_from', 'filter_date_to', 'filter_source',
-        'filter_destination', 'filter_category', 'filter_budget', 'filter_query'
+        'filter_destination', 'filter_category', 'filter_budget', 'filter_bill', 'filter_query'
     ];
 
     function ffApplyFilters() {
@@ -799,5 +826,31 @@
                 }
             });
         }
+    })();
+</script>
+<script type="text/javascript" src="v1/js/ff/column-toggle.js?v={{ FF_BUILD_TIME }}" nonce="{{ JS_NONCE }}"></script>
+<script type="text/javascript" nonce="{{ JS_NONCE }}">
+    (function () {
+        var colColumns = [
+            { key: 'type', label: 'Type', visible: true },
+            { key: 'description', label: '{{ trans("list.description") }}', visible: true },
+            { key: 'amount', label: '{{ trans("list.amount") }}', visible: true },
+            {% if fireflyiiiconfig('use_running_balance', true) %}
+            { key: 'running_balance', label: '{{ trans("list.running_balance") }}', visible: true },
+            {% endif %}
+            { key: 'date', label: '{{ trans("list.date") }}', visible: true },
+            { key: 'source', label: '{{ trans("list.source_account") }}', visible: true },
+            { key: 'destination', label: '{{ trans("list.destination_account") }}', visible: true },
+            {% if showCategory %}
+            { key: 'category', label: '{{ trans("list.category") }}', visible: true },
+            {% endif %}
+            {% if showBudget %}
+            { key: 'budget', label: '{{ trans("list.budget") }}', visible: true },
+            {% endif %}
+            {% if showBill|default(false) %}
+            { key: 'bill', label: '{{ trans("list.bill") }}', visible: true },
+            {% endif %}
+        ];
+        initColumnToggle('#transaction-list-table', 'ff_cols_transactions', colColumns);
     })();
 </script>

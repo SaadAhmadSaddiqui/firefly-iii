@@ -56,6 +56,8 @@ class IndexController extends Controller
     {
         parent::__construct();
         app('view')->share('showCategory', true);
+        app('view')->share('showBudget', true);
+        app('view')->share('showBill', true);
         // translations:
         $this->middleware(function ($request, $next) {
             app('view')->share('mainTitleIcon', 'fa-exchange');
@@ -133,6 +135,7 @@ class IndexController extends Controller
                 ->setPage($page)
                 ->withBudgetInformation()
                 ->withCategoryInformation()
+                ->withBillInformation()
                 ->withAccountInformation()
                 ->withAttachmentInformation()
             ;
@@ -209,6 +212,7 @@ class IndexController extends Controller
                 ->withAccountInformation()
                 ->withBudgetInformation()
                 ->withCategoryInformation()
+                ->withBillInformation()
                 ->withAttachmentInformation()
             ;
             $groups    = $collector->getPaginatedGroups();

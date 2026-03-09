@@ -254,6 +254,7 @@ class OperatorQuerySearch implements SearchInterface
             ->withAccountInformation()
             ->withCategoryInformation()
             ->withBudgetInformation()
+            ->withBillInformation()
         ;
 
         $this->setLimit((int) Preferences::getForUser($user, 'listPageSize', 50)->data);

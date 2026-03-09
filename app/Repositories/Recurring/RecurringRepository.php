@@ -336,7 +336,7 @@ class RecurringRepository implements RecurringRepositoryInterface, UserGroupInte
         $collector   = app(GroupCollectorInterface::class);
 
         $collector->setUser($recurrence->user);
-        $collector->withCategoryInformation()->withBudgetInformation()->setLimit($pageSize)->setPage($page)->withAccountInformation();
+        $collector->withCategoryInformation()->withBudgetInformation()->withBillInformation()->setLimit($pageSize)->setPage($page)->withAccountInformation();
         $collector->setJournalIds($search);
 
         return $collector->getPaginatedGroups();
@@ -366,7 +366,7 @@ class RecurringRepository implements RecurringRepositoryInterface, UserGroupInte
         $collector   = app(GroupCollectorInterface::class);
 
         $collector->setUser($recurrence->user);
-        $collector->withCategoryInformation()->withBudgetInformation()->withAccountInformation();
+        $collector->withCategoryInformation()->withBudgetInformation()->withBillInformation()->withAccountInformation();
         // filter on specific journals.
         $collector->setJournalIds($search);
 

@@ -1,20 +1,27 @@
-<div style="padding-left:8px;">
+<div style="padding-left:8px;display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
     {{ categories.links('pagination.bootstrap-4')|raw }}
     {% include 'partials.per-page-toggle' %}
+    <div class="btn-group" id="column-toggle-container">
+        <button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown"
+                aria-haspopup="true" aria-expanded="false">
+            <span class="fa fa-columns"></span> Columns <span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-right"></ul>
+    </div>
 </div>
-<table class="table table-hover sortable">
+<table class="table table-hover sortable" id="categories-list-table">
     <thead>
     <tr>
         <th data-defaultsort="disabled">&nbsp;</th>
-        <th data-defaultsign="az">{{ trans('list.name') }}</th>
-        <th data-defaultsign="month" class="hidden-sm hidden-xs">{{ trans('list.lastActivity') }}</th>
+        <th data-defaultsign="az" data-col="name">{{ trans('list.name') }}</th>
+        <th data-defaultsign="month" class="hidden-sm hidden-xs" data-col="last_activity">{{ trans('list.lastActivity') }}</th>
     </tr>
     </thead>
     <tbody>
     <tr>
         <td>&nbsp;</td>
-        <td><a href="{{ route('categories.no-category') }}"><em>{{ 'without_category'|_ }}</em></a></td>
-        <td class="hidden-sm hidden-xs">&nbsp;</td>
+        <td data-col="name"><a href="{{ route('categories.no-category') }}"><em>{{ 'without_category'|_ }}</em></a></td>
+        <td class="hidden-sm hidden-xs" data-col="last_activity">&nbsp;</td>
     </tr>
     {% for category in categories %}
         <tr>
@@ -24,18 +31,18 @@
                     <a href="{{ route('categories.delete', category.id) }}" class="btn btn-danger btn-xs"><span class="fa fa-fw fa-trash-o"></span></a>
                 </div>
             </td>
-            <td data-value="{{ category.name }}">
+            <td data-value="{{ category.name }}" data-col="name">
                 <a href="{{ route('categories.show', category.id) }}" title="{{ category.name }}">{{ category.name }}</a>
                 {% if category.attachments.count() > 0 %}
                     <span class="fa fa-fw fa-paperclip"></span>
                 {% endif %}
             </td>
             {% if category.lastActivity %}
-                <td class="hidden-sm hidden-xs" data-value="{{ category.lastActivity.format('Y-m-d H-i-s') }}">
+                <td class="hidden-sm hidden-xs" data-value="{{ category.lastActivity.format('Y-m-d H-i-s') }}" data-col="last_activity">
                     {{ category.lastActivity.isoFormat(monthAndDayFormat) }}
                 </td>
             {% else %}
-                <td class="hidden-sm hidden-xs" data-value="0000-00-00 00-00-00">
+                <td class="hidden-sm hidden-xs" data-value="0000-00-00 00-00-00" data-col="last_activity">
                     <em>{{ 'never'|_ }}</em>
                 </td>
             {% endif %}
@@ -47,3 +54,13 @@
     {{ categories.links('pagination.bootstrap-4')|raw }}
     {% include 'partials.per-page-toggle' %}
 </div>
+<script type="text/javascript" src="v1/js/ff/column-toggle.js?v={{ FF_BUILD_TIME }}" nonce="{{ JS_NONCE }}"></script>
+<script type="text/javascript" nonce="{{ JS_NONCE }}">
+    (function () {
+        var colColumns = [
+            { key: 'name', label: '{{ trans("list.name") }}', visible: true },
+            { key: 'last_activity', label: '{{ trans("list.lastActivity") }}', visible: true },
+        ];
+        initColumnToggle('#categories-list-table', 'ff_cols_categories', colColumns);
+    })();
+</script>

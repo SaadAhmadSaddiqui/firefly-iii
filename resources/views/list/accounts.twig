@@ -1,36 +1,42 @@
-<div style="padding-left:8px;">
+<div style="padding-left:8px;display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
     {{ accounts.links('pagination.bootstrap-4')|raw }}
     {% include 'partials.per-page-toggle' %}
+    <div class="btn-group" id="column-toggle-container">
+        <button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown"
+                aria-haspopup="true" aria-expanded="false">
+            <span class="fa fa-columns"></span> Columns <span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-right"></ul>
+    </div>
 </div>
 <table class="table table-responsive table-hover" id="sortable-table">
     <thead>
     <tr>
         <th class="hidden-sm hidden-xs">&nbsp;</th>
-        <th>{{ trans('list.name') }}</th>
+        <th data-col="name">{{ trans('list.name') }}</th>
         {% if objectType == 'asset' %}
-            <th class="hidden-sm hidden-xs hidden-md">{{ trans('list.role') }}</th>
+            <th class="hidden-sm hidden-xs hidden-md" data-col="role">{{ trans('list.role') }}</th>
         {% endif %}
         {% if objectType == 'liabilities' %}
-            <th>{{ trans('list.liability_type') }}</th>
-            <th>{{ trans('form.liability_direction') }}</th>
-            <th>{{ trans('list.interest') }} ({{ trans('list.interest_period') }})</th>
+            <th data-col="liability_type">{{ trans('list.liability_type') }}</th>
+            <th data-col="liability_direction">{{ trans('form.liability_direction') }}</th>
+            <th data-col="interest">{{ trans('list.interest') }} ({{ trans('list.interest_period') }})</th>
         {% endif %}
-        <th class="hidden-sm hidden-xs">{{ trans('form.account_number') }}</th>
+        <th class="hidden-sm hidden-xs" data-col="account_number">{{ trans('form.account_number') }}</th>
         {% if objectType != 'liabilities' %}
-            <th style="text-align: right;">{{ trans('list.currentBalance') }}</th>
+            <th style="text-align: right;" data-col="balance">{{ trans('list.currentBalance') }}</th>
         {% endif %}
         {% if objectType == 'liabilities' %}
-            <th style="text-align: right;">
+            <th style="text-align: right;" data-col="balance">
                 {{ trans('firefly.left_in_debt') }}
             </th>
         {% endif %}
-        <th class="hidden-sm hidden-xs">{{ trans('list.active') }}</th>
-        {# hide last activity to make room for other stuff #}
+        <th class="hidden-sm hidden-xs" data-col="active">{{ trans('list.active') }}</th>
         {% if objectType != 'liabilities' %}
-            <th class="hidden-sm hidden-xs hidden-md">{{ trans('list.lastActivity') }}</th>
+            <th class="hidden-sm hidden-xs hidden-md" data-col="last_activity">{{ trans('list.lastActivity') }}</th>
         {% endif %}
         <th style="width:15%;"
-            class="hidden-sm hidden-xs hidden-md">{{ trans('list.balanceDiff') }}</th>
+            class="hidden-sm hidden-xs hidden-md" data-col="balance_diff">{{ trans('list.balanceDiff') }}</th>
         <th class="hidden-sm hidden-xs">&nbsp;</th>
     </tr>
     </thead>
@@ -40,7 +46,7 @@
             <td class="hidden-sm hidden-xs">
                 <span class="fa fa-fw fa-bars object-handle"></span>
             </td>
-            <td>
+            <td data-col="name">
                 <a href="{{ route('accounts.show',account.id) }}">{{ account.name }}</a>
                 {% if account.location %}
                     <span class="fa fa-fw fa-map-marker"></span>
@@ -50,7 +56,7 @@
                 {% endif %}
             </td>
             {% if objectType == "asset" %}
-                <td class="hidden-sm hidden-xs hidden-md">
+                <td class="hidden-sm hidden-xs hidden-md" data-col="role">
                     {% for entry in account.accountmeta %}
                         {% if entry.name == 'account_role' %}
                             {{ ('account_role_'~entry.data)|_ }}
@@ -59,13 +65,13 @@
                 </td>
             {% endif %}
             {% if objectType == 'liabilities' %}
-            <td>{{ account.accountTypeString }}</td>
-            <td>{{ trans('firefly.liability_direction_'~account.liability_direction~'_short')  }}</td>
-            <td>{{ account.interest }}% ({{ account.interestPeriod|lower }})</td>
+            <td data-col="liability_type">{{ account.accountTypeString }}</td>
+            <td data-col="liability_direction">{{ trans('firefly.liability_direction_'~account.liability_direction~'_short')  }}</td>
+            <td data-col="interest">{{ account.interest }}% ({{ account.interestPeriod|lower }})</td>
             {% endif %}
-            <td class="hidden-sm hidden-xs">{{ account.iban }}{% if account.iban == '' %}{{ accountGetMetaField(account, 'account_number') }}{% endif %}</td>
+            <td class="hidden-sm hidden-xs" data-col="account_number">{{ account.iban }}{% if account.iban == '' %}{{ accountGetMetaField(account, 'account_number') }}{% endif %}</td>
             {% if objectType != 'liabilities' %}
-            <td style="text-align: right;">
+            <td style="text-align: right;" data-col="balance">
                 <span style="margin-right:5px;">
                     {% for key, balance in account.endBalances %}
                         <span title="{{ key }}">
@@ -86,7 +92,7 @@
             </td>
             {% endif %}
             {% if objectType == 'liabilities' %}
-            <td style="text-align: right;">
+            <td style="text-align: right;" data-col="balance">
                 {% if '-' != account.current_debt %}
                     <span class="text-info money-transfer">
                         {{ formatAmountBySymbol(account.current_debt, account.currency.symbol, account.currency.decimal_places, false) }}
@@ -94,27 +100,26 @@
                 {% endif %}
             </td>
             {% endif %}
-            <td class="hidden-sm hidden-xs">
+            <td class="hidden-sm hidden-xs" data-col="active">
                 {% if account.active %}
                     <span class="fa fa-fw fa-check"></span>
                 {% else %}
                     <span class="fa fa-fw fa-ban"></span>
                 {% endif %}
             </td>
-            {# hide last activity to make room for other stuff #}
             {% if objectType != 'liabilities' %}
                 {% if account.lastActivityDate %}
-                    <td class="hidden-sm hidden-xs hidden-md">
+                    <td class="hidden-sm hidden-xs hidden-md" data-col="last_activity">
                         <!-- {{ account.lastActivityDate }} -->
                         {{ account.lastActivityDate.isoFormat(monthAndDayFormat) }}
                     </td>
                 {% else %}
-                    <td class="hidden-sm hidden-xs hidden-md">
+                    <td class="hidden-sm hidden-xs hidden-md" data-col="last_activity">
                         <em>{{ 'never'|_ }}</em>
                     </td>
                 {% endif %}
             {% endif %}
-            <td class="hidden-sm hidden-xs hidden-md" style="text-align: right;">
+            <td class="hidden-sm hidden-xs hidden-md" style="text-align: right;" data-col="balance_diff">
                 <span style="margin-right:5px;">
                     {% for key, balance in account.differences %}
                         <span title="{{ key }}">
@@ -150,3 +155,31 @@
     {{ accounts.links('pagination.bootstrap-4')|raw }}
     {% include 'partials.per-page-toggle' %}
 </div>
+<script type="text/javascript" src="v1/js/ff/column-toggle.js?v={{ FF_BUILD_TIME }}" nonce="{{ JS_NONCE }}"></script>
+<script type="text/javascript" nonce="{{ JS_NONCE }}">
+    (function () {
+        var colColumns = [
+            { key: 'name', label: '{{ trans("list.name") }}', visible: true },
+            {% if objectType == 'asset' %}
+            { key: 'role', label: '{{ trans("list.role") }}', visible: true },
+            {% endif %}
+            {% if objectType == 'liabilities' %}
+            { key: 'liability_type', label: '{{ trans("list.liability_type") }}', visible: true },
+            { key: 'liability_direction', label: '{{ trans("form.liability_direction") }}', visible: true },
+            { key: 'interest', label: '{{ trans("list.interest") }}', visible: true },
+            {% endif %}
+            { key: 'account_number', label: '{{ trans("form.account_number") }}', visible: true },
+            {% if objectType != 'liabilities' %}
+            { key: 'balance', label: '{{ trans("list.currentBalance") }}', visible: true },
+            {% else %}
+            { key: 'balance', label: '{{ trans("firefly.left_in_debt") }}', visible: true },
+            {% endif %}
+            { key: 'active', label: '{{ trans("list.active") }}', visible: true },
+            {% if objectType != 'liabilities' %}
+            { key: 'last_activity', label: '{{ trans("list.lastActivity") }}', visible: true },
+            {% endif %}
+            { key: 'balance_diff', label: '{{ trans("list.balanceDiff") }}', visible: true },
+        ];
+        initColumnToggle('#sortable-table', 'ff_cols_accounts_{{ objectType }}', colColumns);
+    })();
+</script>

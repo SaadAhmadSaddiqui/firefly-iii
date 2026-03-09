@@ -56,6 +56,8 @@ class ShowController extends Controller
     {
         parent::__construct();
         app('view')->share('showCategory', true);
+        app('view')->share('showBudget', true);
+        app('view')->share('showBill', true);
 
         // translations:
         $this->middleware(function ($request, $next) {
