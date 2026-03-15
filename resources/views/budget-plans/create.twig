@@ -1,0 +1,201 @@
+{% extends './layout/default' %}
+
+{% block styles %}
+    <style nonce="{{ JS_NONCE }}">
+        .extra-expense-row { display: flex; gap: 10px; margin-bottom: 8px; align-items: center; }
+        .extra-expense-row input { flex: 1; }
+        .extra-expense-row .btn-remove { flex: 0 0 auto; }
+        #generating-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+        #generating-overlay.active { display: flex; }
+        .generating-card {
+            background: #222d32;
+            border-radius: 8px;
+            padding: 40px 50px;
+            text-align: center;
+            color: #b8c7ce;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        .generating-card .fa-spin { font-size: 2em; margin-bottom: 15px; color: #3c8dbc; }
+        .generating-card h4 { margin: 0 0 8px; color: #fff; }
+        .generating-card p { margin: 0; font-size: 0.9em; opacity: 0.8; }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div id="generating-overlay">
+        <div class="generating-card">
+            <em class="fa fa-cog fa-spin"></em>
+            <h4>Generating your budget plan...</h4>
+            <p>Analyzing transactions and building recommendations with AI.</p>
+            <p style="margin-top:8px;">This may take up to 2 minutes.</p>
+        </div>
+    </div>
+
+    <form method="POST" action="{{ route('budget-plans.generate') }}" accept-charset="UTF-8" class="form-horizontal" id="budget-plan-form">
+        <input name="_token" type="hidden" value="{{ csrf_token() }}">
+
+        <div class="row">
+            <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                <div class="box box-primary">
+                    <div class="box-header with-border">
+                        <h3 class="box-title"><em class="fa fa-calendar-check-o fa-fw"></em> Budget For</h3>
+                    </div>
+                    <div class="box-body">
+                        <p class="text-muted" style="margin-bottom:15px;">
+                            Which month and year is this budget plan for?
+                        </p>
+                        <div class="form-group">
+                            <label for="budget_month" class="col-sm-4 control-label">Month</label>
+                            <div class="col-sm-8">
+                                <select class="form-control" id="budget_month" name="budget_month" required>
+                                    {% for m in budgetMonths %}
+                                        <option value="{{ m.value }}" {% if m.value == defaultBudgetMonth %}selected{% endif %}>{{ m.label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="budget_year" class="col-sm-4 control-label">Year</label>
+                            <div class="col-sm-8">
+                                <input type="number" class="form-control" id="budget_year" name="budget_year"
+                                       value="{{ old('budget_year', defaultBudgetYear) }}" min="2020" max="2100" required>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="box box-primary">
+                    <div class="box-header with-border">
+                        <h3 class="box-title"><em class="fa fa-money fa-fw"></em> Income</h3>
+                    </div>
+                    <div class="box-body">
+                        <div class="form-group">
+                            <label for="salary" class="col-sm-4 control-label">Monthly Salary</label>
+                            <div class="col-sm-8">
+                                <div class="input-group">
+                                    <input type="number" step="0.01" min="0" class="form-control" id="salary" name="salary"
+                                           value="{{ old('salary', defaultSalary) }}" required>
+                                    <span class="input-group-addon">AED</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="box box-primary">
+                    <div class="box-header with-border">
+                        <h3 class="box-title"><em class="fa fa-calendar fa-fw"></em> Analysis Period</h3>
+                    </div>
+                    <div class="box-body">
+                        <p class="text-muted" style="margin-bottom:15px;">
+                            Select the date range of past transactions to analyze. A 2-3 month window gives the best results.
+                        </p>
+                        <div class="form-group">
+                            <label for="start_date" class="col-sm-4 control-label">Start Date</label>
+                            <div class="col-sm-8">
+                                <input type="date" class="form-control" id="start_date" name="start_date"
+                                       value="{{ old('start_date', defaultStart) }}" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="end_date" class="col-sm-4 control-label">End Date</label>
+                            <div class="col-sm-8">
+                                <input type="date" class="form-control" id="end_date" name="end_date"
+                                       value="{{ old('end_date', defaultEnd) }}" required>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                {% if historicalPlans|length > 0 %}
+                <div class="box box-primary">
+                    <div class="box-header with-border">
+                        <h3 class="box-title"><em class="fa fa-history fa-fw"></em> Past Budget Plans</h3>
+                    </div>
+                    <div class="box-body">
+                        <p class="text-muted" style="margin-bottom:15px;">
+                            Select previous budget plans to give the AI context on your past budgets. It will compare how well you stuck to them.
+                        </p>
+                        <select class="form-control" id="reference_plans" name="reference_plans[]" multiple size="{{ historicalPlans|length < 6 ? historicalPlans|length : 6 }}">
+                            {% for filename, label in historicalPlans %}
+                                <option value="{{ filename }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <p class="help-block">Hold Ctrl/Cmd to select multiple plans.</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="box box-primary">
+                    <div class="box-header with-border">
+                        <h3 class="box-title"><em class="fa fa-exclamation-triangle fa-fw"></em> Out-of-Norm Expenses</h3>
+                    </div>
+                    <div class="box-body">
+                        <p class="text-muted" style="margin-bottom:15px;">
+                            Any expected unusual expenses for the upcoming month (e.g. quarterly rent, annual insurance).
+                        </p>
+                        <div id="extra-expenses-container">
+                            {# rows will be added by JS #}
+                        </div>
+                        <button type="button" class="btn btn-default btn-sm" id="add-expense-btn">
+                            <em class="fa fa-plus fa-fw"></em> Add Expense
+                        </button>
+                    </div>
+                </div>
+
+                <div class="box box-primary">
+                    <div class="box-header with-border">
+                        <h3 class="box-title"><em class="fa fa-bullseye fa-fw"></em> Goals &amp; Instructions</h3>
+                    </div>
+                    <div class="box-body">
+                        <p class="text-muted" style="margin-bottom:15px;">
+                            Describe your financial goals for the next month in your own words. Be as specific as you want.
+                        </p>
+                        <textarea class="form-control" id="goals" name="goals" rows="8"
+                                  placeholder="E.g. This is a tight month — I need to pay 14,500 for quarterly rent from my salary. Help me build a strict budget that covers rent, groceries, and essentials while keeping spending minimal...">{{ old('goals', '') }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="box">
+                    <div class="box-body">
+                        {% if not geminiReady %}
+                            <div class="alert alert-warning">
+                                <em class="fa fa-warning fa-fw"></em>
+                                <strong>Gemini API key not configured.</strong>
+                                Add <code>GEMINI_API_KEY</code> to your <code>.env</code> file to enable AI budget plan generation.
+                            </div>
+                        {% endif %}
+                        <div class="pull-left">
+                            <a href="{{ route('budget-plans.index') }}" class="btn btn-default">
+                                <em class="fa fa-arrow-left fa-fw"></em> Back
+                            </a>
+                        </div>
+                        <div class="pull-right">
+                            <button type="submit" class="btn btn-success btn-lg" id="generate-btn" {% if not geminiReady %}disabled{% endif %}>
+                                <em class="fa fa-magic fa-fw"></em> Generate Budget Plan
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+{% endblock %}
+
+{% block scripts %}
+    <script type="text/javascript" src="v1/js/ff/budget-plans/create.js?v={{ FF_BUILD_TIME }}" nonce="{{ JS_NONCE }}"></script>
+{% endblock %}

@@ -7,9 +7,14 @@
                 <div class="box">
                     <div class="box-header with-border">
                         <h3 class="box-title">No Budget Plans</h3>
+                        <div class="box-tools pull-right">
+                            <a href="{{ route('budget-plans.create') }}" class="btn btn-success btn-sm">
+                                <em class="fa fa-plus fa-fw"></em> Create New Budget Plan
+                            </a>
+                        </div>
                     </div>
                     <div class="box-body">
-                        <p>No budget plan files found. Place <code>.md</code> files in <code>storage/budget-plans/</code> to view them here.</p>
+                        <p>No budget plan files found. Use the button above to generate an AI-powered budget plan.</p>
                     </div>
                 </div>
             </div>
@@ -20,6 +25,11 @@
                 <div class="box box-primary">
                     <div class="box-header with-border">
                         <h3 class="box-title"><em class="fa fa-book fa-fw"></em> Monthly Budget Plans</h3>
+                        <div class="box-tools pull-right">
+                            <a href="{{ route('budget-plans.create') }}" class="btn btn-success btn-sm">
+                                <em class="fa fa-plus fa-fw"></em> Create New Budget Plan
+                            </a>
+                        </div>
                     </div>
                     <div class="box-body no-padding">
                         <table class="table table-striped table-hover">

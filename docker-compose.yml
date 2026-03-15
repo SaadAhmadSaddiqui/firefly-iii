@@ -10,6 +10,7 @@ services:
       - firefly_iii_public_build:/var/www/html/public/build
       - firefly_iii_public_v1:/var/www/html/public/v1/js
       - ./public/v1/js/ff/rules:/var/www/html/public/v1/js/ff/rules
+      - ./public/v1/js/ff/budget-plans:/var/www/html/public/v1/js/ff/budget-plans
       - firefly_iii_upload:/var/www/html/storage/upload
       - ./storage/backups:/var/www/html/storage/backups
     env_file: .env
