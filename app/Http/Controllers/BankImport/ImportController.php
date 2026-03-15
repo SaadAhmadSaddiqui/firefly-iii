@@ -10,9 +10,12 @@ use FireflyIII\Http\Controllers\Controller;
 use FireflyIII\Models\Bill;
 use FireflyIII\Models\Budget;
 use FireflyIII\Models\Category;
+use FireflyIII\Models\TransactionGroup;
+use FireflyIII\Repositories\RuleGroup\RuleGroupRepositoryInterface;
 use FireflyIII\Services\BankImport\EnbdParser;
 use FireflyIII\Services\BankImport\FabParser;
 use FireflyIII\Services\BankImport\MashreqParser;
+use FireflyIII\TransactionRules\Engine\RuleEngineInterface;
 use FireflyIII\User;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Http\JsonResponse;
@@ -61,7 +64,7 @@ class ImportController extends Controller
 
     public function previewEnbd(Request $request): JsonResponse
     {
-        $content = $this->extractContent($request, 'json');
+        $content = $this->extractContent($request);
         if (null === $content) {
             return response()->json(['error' => 'No content provided. Upload a file or paste JSON.'], 422);
         }
@@ -75,21 +78,22 @@ class ImportController extends Controller
 
     public function previewMashreq(Request $request): JsonResponse
     {
-        $content = $this->extractContent($request, 'csv');
+        $format  = $request->input('format', 'csv');
+        $content = $this->extractContent($request);
         if (null === $content) {
-            return response()->json(['error' => 'No content provided. Upload a file or paste CSV.'], 422);
+            return response()->json(['error' => 'No content provided. Upload a file or paste ' . ($format === 'json' ? 'JSON' : 'CSV') . '.'], 422);
         }
 
         $sourceAccountId = (int) $request->input('source_account_id', 50);
         $parser = new MashreqParser();
-        $result = $parser->parse($content, $sourceAccountId);
+        $result = $parser->parse($content, $sourceAccountId, $format);
 
         return response()->json($this->formatPreviewResponse($result));
     }
 
     public function previewFab(Request $request): JsonResponse
     {
-        $content = $this->extractContent($request, 'csv');
+        $content = $this->extractContent($request);
         if (null === $content) {
             return response()->json(['error' => 'No content provided. Upload a file or paste CSV.'], 422);
         }
@@ -103,7 +107,7 @@ class ImportController extends Controller
 
     public function importEnbd(Request $request): JsonResponse
     {
-        $content = $this->extractContent($request, 'json');
+        $content = $this->extractContent($request);
         if (null === $content) {
             return response()->json(['error' => 'No content provided.'], 422);
         }
@@ -119,7 +123,8 @@ class ImportController extends Controller
 
     public function importMashreq(Request $request): JsonResponse
     {
-        $content = $this->extractContent($request, 'csv');
+        $format  = $request->input('format', 'csv');
+        $content = $this->extractContent($request);
         if (null === $content) {
             return response()->json(['error' => 'No content provided.'], 422);
         }
@@ -128,14 +133,14 @@ class ImportController extends Controller
         $overrides = $this->parseOverrides($request);
         $sourceAccountId = (int) $request->input('source_account_id', 50);
         $parser = new MashreqParser();
-        $result = $parser->parse($content, $sourceAccountId);
+        $result = $parser->parse($content, $sourceAccountId, $format);
 
         return $this->executeImport($result['transactions'], $dryRun, $overrides);
     }
 
     public function importFab(Request $request): JsonResponse
     {
-        $content = $this->extractContent($request, 'csv');
+        $content = $this->extractContent($request);
         if (null === $content) {
             return response()->json(['error' => 'No content provided.'], 422);
         }
@@ -149,7 +154,7 @@ class ImportController extends Controller
         return $this->executeImport($result['transactions'], $dryRun, $overrides);
     }
 
-    private function extractContent(Request $request, string $expectedType): ?string
+    private function extractContent(Request $request): ?string
     {
         if ($request->hasFile('import_file')) {
             $file = $request->file('import_file');
@@ -252,6 +257,29 @@ class ImportController extends Controller
         ];
     }
 
+    private function applyRulesSync(TransactionGroup $group, User $user): void
+    {
+        $journals = $group->transactionJournals()->get();
+        if ($journals->isEmpty()) {
+            return;
+        }
+
+        $journalIds = $journals->pluck('id')->toArray();
+
+        /** @var RuleGroupRepositoryInterface $ruleGroupRepository */
+        $ruleGroupRepository = app(RuleGroupRepositoryInterface::class);
+        $ruleGroupRepository->setUser($user);
+
+        $groups = $ruleGroupRepository->getRuleGroupsWithRules('store-journal');
+
+        /** @var RuleEngineInterface $ruleEngine */
+        $ruleEngine = app(RuleEngineInterface::class);
+        $ruleEngine->setUser($user);
+        $ruleEngine->addOperator(['type' => 'journal_id', 'value' => implode(',', $journalIds)]);
+        $ruleEngine->setRuleGroups($groups);
+        $ruleEngine->fire();
+    }
+
     private function executeImport(array $transactions, bool $dryRun = false, array $overrides = []): JsonResponse
     {
         /** @var User $user */
@@ -299,13 +327,33 @@ class ImportController extends Controller
                         'user_group'              => $user->userGroup,
                         'group_title'             => null,
                         'error_if_duplicate_hash' => true,
-                        'apply_rules'             => false,
+                        'apply_rules'             => true,
                         'fire_webhooks'           => false,
                         'transactions'            => [$mapped],
                     ];
 
-                    $factory->create($groupData);
+                    $group = $factory->create($groupData);
                     ++$stats['created'];
+
+                    $this->applyRulesSync($group, $user);
+
+                    /** @var \FireflyIII\Models\TransactionJournal|null $journal */
+                    $journal = $group->transactionJournals()->first();
+                    if (null !== $journal) {
+                        $journal->refresh();
+                        $bill = $journal->bill;
+                        if (null !== $bill) {
+                            $detail['bill_name'] = $bill->name;
+                        }
+                        $budget = $journal->budgets()->first();
+                        if (null !== $budget) {
+                            $detail['budget_name'] = $budget->name;
+                        }
+                        $category = $journal->categories()->first();
+                        if (null !== $category) {
+                            $detail['category_name'] = $category->name;
+                        }
+                    }
                 } catch (\Exception $e) {
                     $msg = $e->getMessage();
                     if (str_contains(strtolower($msg), 'duplicate')) {

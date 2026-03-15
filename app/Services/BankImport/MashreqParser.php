@@ -20,12 +20,17 @@ class MashreqParser
     }
 
     /**
-     * Parse Mashreq credit card CSV export and return mapped transactions.
+     * Parse Mashreq credit card export (CSV or JSON) and return mapped transactions.
      *
+     * @param  string  $format  'csv' or 'json'
      * @return array{transactions: array[], skipped: array[]}
      */
-    public function parse(string $rawContent, int $sourceAccountId): array
+    public function parse(string $rawContent, int $sourceAccountId, string $format = 'csv'): array
     {
+        if ($format === 'json') {
+            return $this->parseJson($rawContent, $sourceAccountId);
+        }
+
         $this->skipped = [];
 
         $lines = preg_split('/\r?\n/', $rawContent);
@@ -56,6 +61,149 @@ class MashreqParser
         }
 
         return ['transactions' => $mapped, 'skipped' => $this->skipped];
+    }
+
+    /**
+     * Parse Mashreq JSON export: { "transactions": [ { transDate, transDescription, amount, ... }, ... ] }
+     *
+     * @return array{transactions: array[], skipped: array[]}
+     */
+    private function parseJson(string $rawContent, int $sourceAccountId): array
+    {
+        $this->skipped = [];
+
+        $data = json_decode($rawContent, true);
+        if (! is_array($data) || ! isset($data['transactions']) || ! is_array($data['transactions'])) {
+            return ['transactions' => [], 'skipped' => [['reason' => 'Invalid JSON or missing "transactions" array.', 'description' => '']]];
+        }
+
+        $mapped = [];
+        foreach ($data['transactions'] as $idx => $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+            $result = $this->mapJsonTransaction($item, $sourceAccountId);
+            if (null !== $result) {
+                $mapped[] = $result;
+            }
+        }
+
+        return ['transactions' => $mapped, 'skipped' => $this->skipped];
+    }
+
+    /**
+     * Map a single JSON transaction object to the internal format.
+     */
+    private function mapJsonTransaction(array $item, int $sourceAccountId): ?array
+    {
+        $transDate       = $item['transDate'] ?? $item['postDate'] ?? null;
+        $transDescription = $item['transDescription'] ?? '';
+        $amount          = isset($item['amount']) ? (float) $item['amount'] : 0.0;
+        $currency        = strtoupper(trim((string) ($item['currency'] ?? 'AED')));
+        $sourceAmount    = isset($item['sourceAmount']) ? (float) $item['sourceAmount'] : abs($amount);
+        $transRefNo      = $item['transRefNo'] ?? '';
+
+        if ($transDate === null || $transDate === '') {
+            return null;
+        }
+
+        if (0.0 === $amount) {
+            return null;
+        }
+
+        if (stripos($transDescription, 'INWARD IPP CC') !== false) {
+            $this->skipped[] = [
+                'reason'        => 'CC payment already imported as transfer',
+                'description'   => $transDescription,
+                'date'          => $transDate,
+                'amount'        => (string) abs($amount),
+                'currency_code' => $currency,
+                'type'          => $amount > 0 ? 'deposit' : 'withdrawal',
+                'original_raw'  => json_encode($item),
+            ];
+
+            return null;
+        }
+
+        try {
+            $carbonDate = Carbon::createFromFormat('Y-m-d', trim($transDate), 'Asia/Dubai');
+        } catch (\Exception $e) {
+            try {
+                $carbonDate = Carbon::createFromFormat('d-M-Y', trim($transDate), 'Asia/Dubai');
+            } catch (\Exception $e2) {
+                return null;
+            }
+        }
+        $carbonDate  = $carbonDate->startOfDay();
+        $absAmount   = abs($amount);
+        $isCredit    = $amount > 0;
+        $description = trim($transDescription);
+        $externalId  = $transRefNo !== '' ? 'mashreq-json-' . $transRefNo : md5(json_encode($item));
+
+        $foreignAmount   = null;
+        $foreignCurrency = null;
+        if ($currency !== 'AED') {
+            $foreignAmount   = (string) $sourceAmount;
+            $foreignCurrency = $currency;
+        } elseif (abs($sourceAmount - $absAmount) > 0.01) {
+            $foreignAmount   = (string) $sourceAmount;
+            $foreignCurrency = 'AED';
+        }
+
+        $merchantName = $this->extractMerchant($description);
+        $notes        = sprintf("Mashreq JSON\nDescription: %s", $description);
+        if (null !== $foreignAmount && $foreignCurrency !== 'AED') {
+            $notes .= sprintf("\nOriginal: %s %.2f", $foreignCurrency, $sourceAmount);
+        } elseif ($foreignCurrency === 'AED' && null !== $foreignAmount) {
+            $notes .= sprintf("\nMerchant charge: AED %.2f (billed: AED %.2f)", $sourceAmount, $absAmount);
+        }
+
+        $tags = $this->deriveTags($description, $currency);
+
+        if ($isCredit) {
+            $revenueName   = $this->resolveRevenueName($description);
+            $result = [
+                'type'                  => 'deposit',
+                'date'                  => $carbonDate,
+                'amount'                => (string) $absAmount,
+                'currency_code'         => 'AED',
+                'description'           => $merchantName,
+                'source_id'             => null,
+                'source_name'           => $revenueName,
+                'destination_id'        => $sourceAccountId,
+                'destination_name'      => null,
+                'tags'                  => $tags,
+                'notes'                 => $notes,
+                'external_id'           => $externalId,
+                'original_raw'          => json_encode($item),
+                'original_id'           => $transRefNo !== '' ? $transRefNo : $externalId,
+            ];
+        } else {
+            $expenseName = $this->matchExpenseAccount($merchantName);
+            $result = [
+                'type'                  => 'withdrawal',
+                'date'                  => $carbonDate,
+                'amount'                => (string) $absAmount,
+                'currency_code'         => 'AED',
+                'description'           => $merchantName,
+                'source_id'             => $sourceAccountId,
+                'source_name'           => null,
+                'destination_id'        => null,
+                'destination_name'      => $expenseName,
+                'tags'                  => $tags,
+                'notes'                 => $notes,
+                'external_id'           => $externalId,
+                'original_raw'          => json_encode($item),
+                'original_id'           => $transRefNo !== '' ? $transRefNo : $externalId,
+            ];
+        }
+
+        if (null !== $foreignAmount && $foreignCurrency !== 'AED') {
+            $result['foreign_amount']        = $foreignAmount;
+            $result['foreign_currency_code'] = $foreignCurrency;
+        }
+
+        return $result;
     }
 
     private function mapRow(array $cols, int $sourceAccountId, int $csvLine, string $rawLine = ''): ?array

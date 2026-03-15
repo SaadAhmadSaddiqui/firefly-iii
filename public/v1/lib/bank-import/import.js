@@ -46,6 +46,15 @@
             r.readAsText(f);
         });
 
+        applyFormatMode();
+        var formatRadioSelector = config.formatSelector ? config.formatSelector.replace(':checked', '') : '';
+        var formatInputs = formatRadioSelector ? document.querySelectorAll(formatRadioSelector) : [];
+        if (formatInputs && formatInputs.length) {
+            formatInputs.forEach(function (input) {
+                input.addEventListener('change', applyFormatMode);
+            });
+        }
+
         document.getElementById('btn-preview').addEventListener('click', doPreview);
         document.getElementById('btn-import').addEventListener('click', doImport);
         document.getElementById('btn-dry-run').addEventListener('click', doDryRun);
@@ -54,6 +63,19 @@
             var btn = e.target.closest('.btn-delete-txn');
             if (btn) deleteTransaction(btn);
         });
+    }
+
+    function applyFormatMode() {
+        if (!config.formatSelector || !config.editorModeByFormat) return;
+        var el = document.querySelector(config.formatSelector);
+        if (!el || !editor) return;
+        var format = el.value;
+        var mode = config.editorModeByFormat[format];
+        if (mode) {
+            editor.setOption('mode', mode);
+        }
+        var label = document.getElementById('editor-label');
+        if (label) label.textContent = format === 'json' ? 'Paste JSON' : 'Paste CSV';
     }
 
     function acct() {
@@ -107,6 +129,10 @@
         var fd = new FormData();
         fd.append('pasted_content', c);
         fd.append('_token', config.csrfToken);
+        if (config.formatParamName && config.formatSelector) {
+            var fmtEl = document.querySelector(config.formatSelector);
+            if (fmtEl) fd.append(config.formatParamName, fmtEl.value);
+        }
 
         var a = acct();
         if (config.sourceAccountParamName && a) fd.append(config.sourceAccountParamName, a);
@@ -128,6 +154,10 @@
         fd.append('pasted_content', lastContent || content());
         fd.append('_token', config.csrfToken);
         fd.append('overrides', JSON.stringify(collectOverrides()));
+        if (config.formatParamName && config.formatSelector) {
+            var fmtEl = document.querySelector(config.formatSelector);
+            if (fmtEl) fd.append(config.formatParamName, fmtEl.value);
+        }
         if (config.sourceAccountParamName && lastAcct) fd.append(config.sourceAccountParamName, lastAcct);
 
         fetch(config.importUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
@@ -145,6 +175,10 @@
         fd.append('_token', config.csrfToken);
         fd.append('dry_run', '1');
         fd.append('overrides', JSON.stringify(collectOverrides()));
+        if (config.formatParamName && config.formatSelector) {
+            var fmtEl = document.querySelector(config.formatSelector);
+            if (fmtEl) fd.append(config.formatParamName, fmtEl.value);
+        }
         if (config.sourceAccountParamName && lastAcct) fd.append(config.sourceAccountParamName, lastAcct);
 
         fetch(config.importUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
@@ -220,18 +254,34 @@
         if (!editorContent) return;
 
         var updated = editorContent;
-        if (config.editorMode === 'application/json') {
-            try {
-                var data = JSON.parse(editorContent);
-                if (data.transactions && item.original_id) {
-                    data.transactions = data.transactions.filter(function (txn) {
-                        return txn.id !== item.original_id;
-                    });
-                    updated = JSON.stringify(data, null, '\t');
+        if ((config.editorMode === 'application/json' || (config.editorModeByFormat && editor)) && editor) {
+            var currentMode = editor.getOption ? editor.getOption('mode') : config.editorMode;
+            if (currentMode === 'application/json') {
+                try {
+                    var data = JSON.parse(editorContent);
+                    if (data.transactions && item.original_id) {
+                        data.transactions = data.transactions.filter(function (txn) {
+                            var txnId = txn.id !== undefined ? txn.id : txn.transRefNo;
+                            return txnId !== item.original_id;
+                        });
+                        updated = JSON.stringify(data, null, '\t');
+                    }
+                } catch (err) {
+                    alert('Could not parse editor JSON: ' + err.message);
+                    return;
                 }
-            } catch (err) {
-                alert('Could not parse editor JSON: ' + err.message);
-                return;
+            } else if (item.original_raw) {
+                var lines = editorContent.split(/\r?\n/);
+                var needle = item.original_raw.trim();
+                var found = false;
+                var filtered = lines.filter(function (line) {
+                    if (!found && line.trim() === needle) {
+                        found = true;
+                        return false;
+                    }
+                    return true;
+                });
+                updated = filtered.join('\n');
             }
         } else if (item.original_raw) {
             var lines = editorContent.split(/\r?\n/);
@@ -286,10 +336,16 @@
                 tr.className = 'dry-run-failed';
             }
             var pfx = d.type === 'deposit' ? '+' : '-';
+            var budgetCell  = d.budget_name   ? '<span class="label label-info">'    + esc(d.budget_name)   + '</span>' : '';
+            var categoryCell = d.category_name ? '<span class="label label-primary">' + esc(d.category_name) + '</span>' : '';
+            var billCell    = d.bill_name     ? '<span class="label label-warning">'  + esc(d.bill_name)     + '</span>' : '';
             tr.innerHTML =
                 '<td>' + esc(d.date) + '</td>' +
                 '<td>' + esc(d.description) + '</td>' +
                 '<td class="text-right">' + pfx + ' ' + esc(d.currency) + ' ' + parseFloat(d.amount).toFixed(2) + '</td>' +
+                '<td>' + budgetCell + '</td>' +
+                '<td>' + categoryCell + '</td>' +
+                '<td>' + billCell + '</td>' +
                 '<td><span class="label label-' + statusClass + '">' + esc(statusLabel) + '</span></td>' +
                 '<td>' + (d.message ? esc(d.message) : '') + '</td>';
             tb.appendChild(tr);
