@@ -8,16 +8,30 @@ class PromptBuilder
 {
     public function build(
         float  $salary,
+        float  $bankBalance,
+        float  $cashOnHand,
+        array  $ccBalances,
+        string $budgetPeriodStart,
+        string $budgetPeriodEnd,
         string $startDate,
         string $endDate,
         array  $extraExpenses,
+        array  $alreadyPaid,
+        array  $fixedObligations,
+        array  $subscriptionChanges,
         string $goals,
         array  $financialData,
         array  $referencePlans = [],
         string $budgetFor = '',
     ): array {
         $systemPrompt = $this->buildSystemPrompt($referencePlans);
-        $userPrompt   = $this->buildUserPrompt($salary, $startDate, $endDate, $extraExpenses, $goals, $financialData, $budgetFor);
+        $userPrompt   = $this->buildUserPrompt(
+            $salary, $bankBalance, $cashOnHand, $ccBalances,
+            $budgetPeriodStart, $budgetPeriodEnd,
+            $startDate, $endDate,
+            $extraExpenses, $alreadyPaid, $fixedObligations, $subscriptionChanges,
+            $goals, $financialData, $budgetFor,
+        );
 
         return [
             'system' => $systemPrompt,
@@ -30,23 +44,62 @@ class PromptBuilder
         $prompt = <<<'SYSTEM'
 You are a strict, experienced financial advisor integrated into Firefly III (a personal finance manager). Your job is to analyze a user's real transaction history, existing financial setup, and stated goals to produce a comprehensive monthly budget plan.
 
-## Your output MUST be a single Markdown document with these sections:
+## Category Classification Guide
+
+When categorizing transactions, use these categories and merchant mappings:
+
+| Category | Typical Merchants / Keywords |
+|---|---|
+| Personal Transfers | Transfers to family/friends — identify mandatory vs one-off |
+| Rent | Cheque Payment, housing-related |
+| Utilities | e& Digital App, SEWA (Shj Elec Water Auth), internet/mobile |
+| Groceries | Noon Minutes, Amazon Grocery, Carrefour, Nesto, Gala, Safeer, supermarkets. Also includes wife's hygiene/personal care products. |
+| Food Delivery | talabat.com, Wolt, delivery service subscriptions (talabat pro) |
+| Dining Out | Restaurants, cafes, coffee shops (Black Tap, Trio Cafe, Paul, Tim Hortons, Caesars, Lake Tea, Filli, etc.) |
+| Business Tools | HighLevel, Google Workspace, AWS EMEA, Envato, professional SaaS |
+| Personal Subscriptions | APPLE.COM/BILL, Netflix, Spotify, OpenAI ChatGPT, Google One, PlayStation Network, noon one |
+| Education | Preply, UWORLD, courses, exam prep |
+| Transportation | Fuel (ADNOC, ENOC, Emarat, Al Maha), taxis (Careem, Union, Yandex), parking |
+| Fitness | GymNation (2 people = ~AED 400/month total) |
+| Donations | Droplets of Mercy, Impact Guru |
+| Shopping | Amazon.ae, clothing (Pull and Bear, Shein), electronics (Laam Technologies), AliExpress, Temu, Sephora |
+| Activities/Outings | Museums (Louvre), events (platinumlist), game purchases (Epic/Riot), amusement parks |
+| Medical | Pharmacies, doctor visits, hospitals |
+| Grooming | Hairdressing, barber, spa |
+| Government/Admin | Dubai Police, Ministry of Foreign Affairs, Tasjeel, ICP, visa fees |
+| Bank Fees | Card annual fees, monthly service charges |
+
+Use these as guidance — if a new merchant appears, classify it into the most logical category.
+
+## Firefly III Entity Knowledge
+
+When making Firefly III setup recommendations, use these concepts correctly:
+- **Budgets**: For variable spending you want to cap (groceries, dining, transport). Use auto-budget monthly reset. Fixed costs don't need budgets.
+- **Subscriptions (Bills)**: For auto-charged services. Matched via Rules, NOT the bill's `match` field. Bill `match` must be `MIGRATED_TO_RULES`. Rules must use `strict = true` (AND logic). Each rule needs: `description_contains` trigger + `amount_more`/`amount_less` triggers + `link_to_bill` action.
+- **Recurring Transactions**: For payments the user makes themselves on a schedule (rent, family transfers, gym, donations). NOT for subscriptions.
+- **Piggy Banks**: For savings goals or large periodic payments (e.g. rent fund). Linked to accounts.
+- **APPLE.COM/BILL note**: This single merchant contains MULTIPLE subscriptions (e.g. iCloud Personal, iCloud Wife, YouTube Premium). Differentiate by amount range, not description.
+
+## Output Format
+
+Your output MUST be a single Markdown document with these sections:
 
 ### 1. Financial Snapshot
-A table showing: current salary, current account balances (all asset and liability accounts), the analysis period, total income received in the period, total withdrawals in the period, monthly average spending, and net position (salary vs average spending). Include a breakdown of transfers between accounts (e.g. credit card payments).
+A table showing: current bank balance, cash on hand, credit card balances, the budget period, salary, total income in the analysis period, total withdrawals, monthly average spending, and net position. Account for already-paid items and deduct them from the starting balance.
 
 ### 2. Where Your Money Has Been Going (Spending Analysis)
-- Group ALL transactions from the analysis period into meaningful categories (Groceries, Dining Out, Food Delivery, Transportation, Utilities, Subscriptions, Business Tools, Shopping, Entertainment, etc.)
-- For each category, provide a detailed table with: merchant names, transaction counts, total amounts, and monthly averages
-- Include specific merchant-level breakdowns within each category
+- Group ALL withdrawal transactions into the categories defined above
+- For each category: detailed table with merchant names, transaction counts, total amounts, monthly averages
+- Include specific merchant-level breakdowns
 - Calculate percentages of total spending
 - Provide a summary table of all categories with monthly averages
 
 ### 3. Budget Allocation for the Upcoming Month
-- A detailed table with: category, budgeted amount, comparison to historical average, and reasoning
-- Account for the user's salary as the hard income cap
-- Factor in any out-of-norm expected expenses the user specified
-- Honor the user's goals and tone (if they say "tight month", be strict; if they say "comfortable", allow more flexibility)
+- A detailed table with: category, budgeted amount, comparison to historical average (% change), and reasoning
+- The bank balance (minus large obligations and fixed transfers) is the hard spending cap — NOT the salary
+- Factor in any out-of-norm expected expenses
+- Account for fixed obligations and their active/paused status
+- Honor the user's goals and tone
 - Show total allocated vs available vs buffer in a summary table
 
 ### 4. Category-by-Category Reasoning
@@ -55,28 +108,27 @@ For each budget category, explain WHY you set that amount: what the historical s
 ### 5. Biggest Levers to Cut Further
 A ranked table of actions the user can take if they need to save more, with estimated savings and pain level.
 
-### 6. Firefly III Setup Recommendations
-Based on your analysis, recommend:
-- **Budgets to create** (with monthly amounts) — only if they don't already exist
-- **Categories to create** — only if transactions need better categorization
-- **Subscriptions (Bills) to create** — for recurring charges you identified that aren't tracked yet
-- **Rules to create** — for auto-categorizing transactions
-- **Piggy banks** — for savings goals or large upcoming expenses
-- **Recurring transactions** — for predictable fixed costs
+### 6. Firefly III Changes Checklist
+Based on your analysis, provide an actionable checklist of what to add, update, or remove:
+- **Budget Limits**: Which existing budgets need their monthly amount updated (with old → new values), new budgets to create, budgets to deactivate
+- **Subscriptions (Bills + Rules)**: New subscriptions to add (with name, match keywords, amount range, anchor date), subscriptions to deactivate, price changes
+- **Recurring Transactions**: New ones to add, existing ones to deactivate, amount changes
+- **Piggy Banks**: Target/contribution updates, new savings goals
+For each item, note whether it already exists in the user's setup and skip if unchanged.
 
-For each recommendation, note whether it already exists in the user's setup (and skip it if so).
-
-## Important rules:
-- Use the SAME currency throughout (match the user's transaction currency)
+## Important Rules
+- Use AED throughout
 - Be data-driven: every recommendation must reference actual transaction data
-- Never exceed the stated salary in your budget unless the user explicitly mentions additional income sources
-- If additional income is mentioned, note it as emergency-only and don't include it in the primary budget
+- The bank balance (not salary) is the starting point for budget calculations
+- Cash on hand should be treated as emergency buffer, not primary spending money
+- Fixed obligations marked as "active" are non-negotiable costs deducted off the top
+- Fixed obligations marked as "paused" or "cancelled" free up that amount
+- Already-paid items have been deducted from the balance — don't double-count them
 - Be honest and direct about overspending patterns
 - The output must be pure Markdown with no code fences wrapping the entire document
 - Do NOT wrap the output in ```markdown``` code fences
-- Keep markdown tables compact: no excessive padding, no repeating dashes beyond what is needed for a standard table separator (3 dashes per column is sufficient)
+- Keep markdown tables compact: 3 dashes per column separator is sufficient
 - Do NOT generate ASCII art, bar charts, progress bars, or visual decorations of any kind
-- Each table cell should contain only the necessary data, no trailing spaces or padding
 SYSTEM;
 
         if (!empty($referencePlans)) {
@@ -100,43 +152,103 @@ SYSTEM;
 
     private function buildUserPrompt(
         float  $salary,
+        float  $bankBalance,
+        float  $cashOnHand,
+        array  $ccBalances,
+        string $budgetPeriodStart,
+        string $budgetPeriodEnd,
         string $startDate,
         string $endDate,
         array  $extraExpenses,
+        array  $alreadyPaid,
+        array  $fixedObligations,
+        array  $subscriptionChanges,
         string $goals,
         array  $financialData,
         string $budgetFor = '',
     ): string {
         $parts = [];
 
-        $parts[] = "## My Financial Inputs\n";
-
+        // --- Header ---
         if ('' !== $budgetFor) {
-            $parts[] = sprintf("**Budget For:** %s\n", $budgetFor);
+            $parts[] = sprintf("# Budget Plan for %s\n", $budgetFor);
         }
 
-        $parts[] = sprintf("**Monthly Salary:** %.2f\n", $salary);
-        $parts[] = sprintf("**Analysis Period:** %s to %s\n", $startDate, $endDate);
+        // --- Financial Situation ---
+        $parts[] = "## My Financial Situation\n";
+        $parts[] = sprintf("- **Current bank balance (Emirates NBD):** AED %.2f", $bankBalance);
+        $parts[] = "  (This is my total balance RIGHT NOW — salary already received, do NOT add salary.)";
+        $parts[] = sprintf("- **Cash on hand:** AED %.2f (emergency buffer — only use if bank runs out)", $cashOnHand);
+        $parts[] = "- **Credit card balances:**";
+        foreach ($ccBalances as $label => $balance) {
+            $parts[] = sprintf("  - %s: AED %.2f", $label, $balance);
+        }
+        $parts[] = sprintf("- **Monthly salary:** AED %.2f (income cap for calculations)", $salary);
+        $parts[] = sprintf("- **Budget period:** %s to %s (payday to payday)\n", $budgetPeriodStart, $budgetPeriodEnd);
 
-        if (!empty($extraExpenses)) {
-            $parts[] = "**Expected Out-of-Norm Expenses for Next Month:**";
-            foreach ($extraExpenses as $expense) {
-                $name   = $expense['name'] ?? 'Unknown';
-                $amount = $expense['amount'] ?? 0;
-                $parts[] = sprintf("- %s: %.2f", $name, (float) $amount);
+        // --- Already Paid Today ---
+        if (!empty($alreadyPaid)) {
+            $parts[] = "## Already Paid Today\n";
+            $parts[] = "These payments already went through and are reflected in the balance above:";
+            foreach ($alreadyPaid as $item) {
+                $account = !empty($item['account']) ? sprintf(' (from %s)', $item['account']) : '';
+                $parts[] = sprintf("- %s: AED %.2f%s", $item['name'] ?? 'Unknown', (float) ($item['amount'] ?? 0), $account);
             }
             $parts[] = '';
         }
 
+        // --- Out-of-Norm Expenses ---
+        if (!empty($extraExpenses)) {
+            $parts[] = "## Large Upcoming Obligations This Period\n";
+            foreach ($extraExpenses as $expense) {
+                $parts[] = sprintf("- %s: AED %.2f", $expense['name'] ?? 'Unknown', (float) ($expense['amount'] ?? 0));
+            }
+            $parts[] = '';
+        }
+
+        // --- Fixed Obligations ---
+        if (!empty($fixedObligations)) {
+            $parts[] = "## Fixed Monthly Obligations\n";
+            foreach ($fixedObligations as $ob) {
+                $statusLabel = match ($ob['status'] ?? 'active') {
+                    'paused'    => 'CAN pause this month',
+                    'cancelled' => 'CANCELLED / Stopped',
+                    default     => 'Active (mandatory)',
+                };
+                $parts[] = sprintf("- %s: AED %.2f — **%s**", $ob['label'] ?? $ob['key'], (float) ($ob['amount'] ?? 0), $statusLabel);
+            }
+            $parts[] = '';
+        }
+
+        // --- Subscription Changes ---
+        if (!empty($subscriptionChanges)) {
+            $parts[] = "## Subscription Changes Since Last Month\n";
+            foreach ($subscriptionChanges as $change) {
+                $action = strtoupper($change['action'] ?? 'unknown');
+                $amount = !empty($change['amount']) ? sprintf(' — AED %.2f', (float) $change['amount']) : '';
+                $parts[] = sprintf("- **%s** %s%s", $action, $change['name'] ?? 'Unknown', $amount);
+            }
+            $parts[] = '';
+        }
+
+        // --- Goals ---
         if (!empty(trim($goals))) {
-            $parts[] = "**My Goals / Instructions for This Budget:**";
+            $parts[] = "## Goals & Instructions\n";
             $parts[] = $goals;
             $parts[] = '';
         }
 
+        // --- Divider ---
         $parts[] = "---\n";
-        $parts[] = "## My Firefly III Data\n";
 
+        // --- Analysis Period ---
+        $parts[] = sprintf("## Transaction Analysis Period: %s to %s\n", $startDate, $endDate);
+
+        // --- Spending Report Summary ---
+        $parts[] = $this->formatSpendingReport($financialData['spending_report'] ?? []);
+
+        // --- Firefly III Data ---
+        $parts[] = "## Firefly III Data\n";
         $parts[] = $this->formatAccounts($financialData['accounts'] ?? []);
         $parts[] = $this->formatTransactionGroup('Withdrawals (Expenses)', $financialData['withdrawals'] ?? []);
         $parts[] = $this->formatTransactionGroup('Deposits (Income)', $financialData['deposits'] ?? []);
@@ -147,6 +259,51 @@ SYSTEM;
         $parts[] = $this->formatRules($financialData['rules'] ?? []);
 
         return implode("\n", $parts);
+    }
+
+    private function formatSpendingReport(array $report): string
+    {
+        if (empty($report) || empty($report['by_merchant'])) {
+            return "### Spending Report Summary\nNo withdrawal data available.\n";
+        }
+
+        $lines   = [];
+        $lines[] = "### Spending Report Summary\n";
+        $lines[] = sprintf(
+            "**Total spending:** AED %.2f across %d transactions | **Monthly average:** AED %.2f\n",
+            $report['total'],
+            $report['txn_count'],
+            $report['monthly_avg']
+        );
+
+        // Monthly totals
+        if (!empty($report['monthly_totals'])) {
+            $lines[] = '**Monthly breakdown:**';
+            foreach ($report['monthly_totals'] as $month => $total) {
+                $lines[] = sprintf('- %s: AED %.2f', $month, $total);
+            }
+            $lines[] = '';
+        }
+
+        // Top merchants
+        $lines[] = '**Spending by merchant** (sorted by total, descending):';
+        $lines[] = '';
+        $lines[] = '| Merchant | Total (AED) | Txns | Avg/Txn |';
+        $lines[] = '| --- | --- | --- | --- |';
+
+        foreach ($report['by_merchant'] as $merchant => $data) {
+            $lines[] = sprintf(
+                '| %s | %.2f | %d | %.2f |',
+                $this->escape((string) $merchant),
+                $data['total'],
+                $data['count'],
+                $data['avg']
+            );
+        }
+
+        $lines[] = '';
+
+        return implode("\n", $lines);
     }
 
     private function formatAccounts(array $accounts): string

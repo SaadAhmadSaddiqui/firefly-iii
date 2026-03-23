@@ -5,17 +5,35 @@ declare(strict_types=1);
 namespace FireflyIII\Http\Controllers;
 
 use Carbon\Carbon;
+use FireflyIII\Enums\AccountTypeEnum;
+use FireflyIII\Repositories\Account\AccountRepositoryInterface;
 use FireflyIII\Services\BudgetPlan\BudgetPlanDataCollector;
 use FireflyIII\Services\BudgetPlan\GeminiService;
 use FireflyIII\Services\BudgetPlan\PromptBuilder;
+use FireflyIII\Support\Facades\Steam;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class BudgetPlanController extends Controller
 {
+    private const array CREDIT_CARDS = [
+        ['key' => 'ei',      'label' => 'EI RTA CC',  'account_id' => 49],
+        ['key' => 'mashreq', 'label' => 'Mashreq CC', 'account_id' => 50],
+        ['key' => 'fab',     'label' => 'FAB CC',     'account_id' => 51],
+    ];
+
+    private const array FIXED_OBLIGATIONS = [
+        ['key' => 'dad_transfer', 'label' => 'Transfer to Dad (Anees Ahmad)', 'amount' => '5000.00'],
+        ['key' => 'donations',    'label' => 'Donations (Droplets of Mercy + Impact Guru)', 'amount' => '384.00'],
+        ['key' => 'gymnation',    'label' => 'GymNation (2 people)', 'amount' => '400.00'],
+    ];
+
+    private const int EMIRATES_NBD_ACCOUNT_ID = 1;
+
     public function __construct()
     {
         parent::__construct();
@@ -28,9 +46,6 @@ class BudgetPlanController extends Controller
         });
     }
 
-    /**
-     * @return Factory|View
-     */
     public function index(): Factory|\Illuminate\Contracts\View\View
     {
         $directory = storage_path('budget-plans');
@@ -44,7 +59,7 @@ class BudgetPlanController extends Controller
                     $name     = str_replace(['_', '.md'], [' ', ''], $filename);
                     $modified = filemtime($file);
 
-                    $plans[]  = [
+                    $plans[] = [
                         'filename' => $filename,
                         'name'     => $name,
                         'size'     => filesize($file),
@@ -59,16 +74,14 @@ class BudgetPlanController extends Controller
         return view('budget-plans.index', compact('plans'));
     }
 
-    /**
-     * @return Factory|View
-     */
     public function create(): Factory|\Illuminate\Contracts\View\View
     {
-        $subTitle       = 'Create New Budget Plan';
-        $defaultSalary  = 25724.42;
-        $defaultStart   = Carbon::now()->subMonths(3)->format('Y-m-d');
-        $defaultEnd     = Carbon::now()->format('Y-m-d');
-        $geminiReady    = '' !== (string) config('gemini.api_key');
+        $subTitle      = 'Create New Budget Plan';
+        $defaultSalary = 25724.42;
+        $defaultStart  = Carbon::now()->subMonths(3)->format('Y-m-d');
+        $defaultEnd    = Carbon::now()->format('Y-m-d');
+        $geminiReady   = '' !== (string) config('gemini.api_key');
+
         $historicalPlans = $this->listBudgetPlans();
 
         $nextMonth          = Carbon::now()->addMonth();
@@ -83,6 +96,23 @@ class BudgetPlanController extends Controller
             ];
         }
 
+        $accountBalances = $this->getAccountBalances();
+
+        $defaultBankBalance = $accountBalances[self::EMIRATES_NBD_ACCOUNT_ID] ?? '0';
+        $defaultCashOnHand  = '0';
+
+        $creditCards = [];
+        foreach (self::CREDIT_CARDS as $cc) {
+            $creditCards[] = array_merge($cc, [
+                'balance' => $accountBalances[$cc['account_id']] ?? '0',
+            ]);
+        }
+
+        $fixedObligations = array_map(fn (array $ob) => array_merge($ob, ['status' => 'active']), self::FIXED_OBLIGATIONS);
+
+        $defaultBudgetPeriodStart = Carbon::now()->format('Y-m-d');
+        $defaultBudgetPeriodEnd   = Carbon::now()->addDays(31)->format('Y-m-d');
+
         return view('budget-plans.create', compact(
             'subTitle',
             'defaultSalary',
@@ -93,6 +123,12 @@ class BudgetPlanController extends Controller
             'budgetMonths',
             'defaultBudgetMonth',
             'defaultBudgetYear',
+            'defaultBankBalance',
+            'defaultCashOnHand',
+            'creditCards',
+            'fixedObligations',
+            'defaultBudgetPeriodStart',
+            'defaultBudgetPeriodEnd',
         ));
     }
 
@@ -101,28 +137,79 @@ class BudgetPlanController extends Controller
         set_time_limit(0);
 
         $request->validate([
-            'salary'                  => 'required|numeric|min:0',
-            'start_date'              => 'required|date',
-            'end_date'                => 'required|date|after_or_equal:start_date',
-            'budget_month'            => 'required|integer|between:1,12',
-            'budget_year'             => 'required|integer|min:2020|max:2100',
-            'goals'                   => 'nullable|string|max:5000',
-            'extra_expenses'          => 'nullable|array',
-            'extra_expenses.*.name'   => 'nullable|string|max:255',
-            'extra_expenses.*.amount' => 'nullable|numeric|min:0',
-            'reference_plans'         => 'nullable|array',
-            'reference_plans.*'       => 'string|max:255',
+            'salary'                            => 'required|numeric|min:0',
+            'bank_balance'                      => 'required|numeric|min:0',
+            'cash_on_hand'                      => 'nullable|numeric|min:0',
+            'cc_balances'                       => 'nullable|array',
+            'cc_balances.*'                     => 'nullable|numeric|min:0',
+            'start_date'                        => 'required|date',
+            'end_date'                          => 'required|date|after_or_equal:start_date',
+            'budget_month'                      => 'required|integer|between:1,12',
+            'budget_year'                       => 'required|integer|min:2020|max:2100',
+            'budget_period_start'               => 'required|date',
+            'budget_period_end'                 => 'required|date|after_or_equal:budget_period_start',
+            'goals'                             => 'nullable|string|max:5000',
+            'extra_expenses'                    => 'nullable|array',
+            'extra_expenses.*.name'             => 'nullable|string|max:255',
+            'extra_expenses.*.amount'           => 'nullable|numeric|min:0',
+            'already_paid'                      => 'nullable|array',
+            'already_paid.*.name'               => 'nullable|string|max:255',
+            'already_paid.*.amount'             => 'nullable|numeric|min:0',
+            'already_paid.*.account'            => 'nullable|string|max:255',
+            'fixed_obligations'                 => 'nullable|array',
+            'fixed_obligations.*'               => 'nullable|string|in:active,paused,cancelled',
+            'fixed_obligation_amounts'          => 'nullable|array',
+            'fixed_obligation_labels'           => 'nullable|array',
+            'subscription_changes'              => 'nullable|array',
+            'subscription_changes.*.name'       => 'nullable|string|max:255',
+            'subscription_changes.*.action'     => 'nullable|string|in:cancelled,paused,new,price_change',
+            'subscription_changes.*.amount'     => 'nullable|numeric|min:0',
+            'reference_plans'                   => 'nullable|array',
+            'reference_plans.*'                 => 'string|max:255',
         ]);
 
         $salary      = (float) $request->input('salary');
+        $bankBalance = (float) $request->input('bank_balance');
+        $cashOnHand  = (float) $request->input('cash_on_hand', 0);
         $startDate   = Carbon::parse($request->input('start_date'));
         $endDate     = Carbon::parse($request->input('end_date'));
         $budgetMonth = (int) $request->input('budget_month');
         $budgetYear  = (int) $request->input('budget_year');
         $goals       = (string) $request->input('goals', '');
 
+        $budgetPeriodStart = $request->input('budget_period_start');
+        $budgetPeriodEnd   = $request->input('budget_period_end');
+
+        $ccBalances = [];
+        foreach (self::CREDIT_CARDS as $cc) {
+            $ccBalances[$cc['label']] = (float) ($request->input('cc_balances.' . $cc['key'], 0));
+        }
+
         $extraExpenses = collect($request->input('extra_expenses', []))
             ->filter(fn ($e) => !empty($e['name']) && !empty($e['amount']))
+            ->values()
+            ->toArray();
+
+        $alreadyPaid = collect($request->input('already_paid', []))
+            ->filter(fn ($e) => !empty($e['name']) && !empty($e['amount']))
+            ->values()
+            ->toArray();
+
+        $fixedObligations = [];
+        $obligationStatuses = $request->input('fixed_obligations', []);
+        $obligationAmounts  = $request->input('fixed_obligation_amounts', []);
+        $obligationLabels   = $request->input('fixed_obligation_labels', []);
+        foreach ($obligationStatuses as $key => $status) {
+            $fixedObligations[] = [
+                'key'    => $key,
+                'label'  => $obligationLabels[$key] ?? $key,
+                'amount' => (float) ($obligationAmounts[$key] ?? 0),
+                'status' => $status,
+            ];
+        }
+
+        $subscriptionChanges = collect($request->input('subscription_changes', []))
+            ->filter(fn ($e) => !empty($e['name']))
             ->values()
             ->toArray();
 
@@ -138,14 +225,22 @@ class BudgetPlanController extends Controller
 
             $promptBuilder = new PromptBuilder();
             $prompts       = $promptBuilder->build(
-                $salary,
-                $startDate->format('Y-m-d'),
-                $endDate->format('Y-m-d'),
-                $extraExpenses,
-                $goals,
-                $financialData,
-                $referencePlans,
-                $budgetForDate->format('F Y'),
+                salary: $salary,
+                bankBalance: $bankBalance,
+                cashOnHand: $cashOnHand,
+                ccBalances: $ccBalances,
+                budgetPeriodStart: $budgetPeriodStart,
+                budgetPeriodEnd: $budgetPeriodEnd,
+                startDate: $startDate->format('Y-m-d'),
+                endDate: $endDate->format('Y-m-d'),
+                extraExpenses: $extraExpenses,
+                alreadyPaid: $alreadyPaid,
+                fixedObligations: $fixedObligations,
+                subscriptionChanges: $subscriptionChanges,
+                goals: $goals,
+                financialData: $financialData,
+                referencePlans: $referencePlans,
+                budgetFor: $budgetForDate->format('F Y'),
             );
 
             $gemini   = new GeminiService();
@@ -171,12 +266,9 @@ class BudgetPlanController extends Controller
         }
     }
 
-    /**
-     * @return Factory|View
-     */
     public function show(string $filename): Factory|\Illuminate\Contracts\View\View
     {
-        $filename  = basename($filename);
+        $filename = basename($filename);
 
         if (!str_ends_with($filename, '.md')) {
             throw new NotFoundHttpException();
@@ -188,15 +280,48 @@ class BudgetPlanController extends Controller
             throw new NotFoundHttpException();
         }
 
-        $content   = file_get_contents($path);
+        $content = file_get_contents($path);
         if (false === $content) {
             throw new NotFoundHttpException();
         }
 
-        $name      = str_replace(['_', '.md'], [' ', ''], $filename);
-        $subTitle  = $name;
+        $name     = str_replace(['_', '.md'], [' ', ''], $filename);
+        $subTitle = $name;
 
         return view('budget-plans.show', compact('content', 'subTitle', 'filename'));
+    }
+
+    private function getAccountBalances(): array
+    {
+        /** @var AccountRepositoryInterface $repo */
+        $repo = app(AccountRepositoryInterface::class);
+
+        $allIds = array_merge(
+            [self::EMIRATES_NBD_ACCOUNT_ID],
+            array_column(self::CREDIT_CARDS, 'account_id')
+        );
+
+        $accounts   = new Collection();
+        foreach ($allIds as $id) {
+            $account = $repo->find($id);
+            if (null !== $account) {
+                $accounts->push($account);
+            }
+        }
+
+        if ($accounts->isEmpty()) {
+            return [];
+        }
+
+        $now      = Carbon::now();
+        $balances = Steam::accountsBalancesOptimized($accounts, $now);
+
+        $result = [];
+        foreach ($accounts as $account) {
+            $result[$account->id] = $balances[$account->id]['balance'] ?? '0';
+        }
+
+        return $result;
     }
 
     private function listBudgetPlans(): array
@@ -235,8 +360,8 @@ class BudgetPlanController extends Controller
 
             $content = file_get_contents($path);
             if (false !== $content) {
-                $label    = str_replace(['_', '.md'], [' ', ''], $filename);
-                $plans[]  = [
+                $label   = str_replace(['_', '.md'], [' ', ''], $filename);
+                $plans[] = [
                     'name'    => $label,
                     'content' => $content,
                 ];

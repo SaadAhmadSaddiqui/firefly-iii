@@ -19,15 +19,18 @@ class BudgetPlanDataCollector
 {
     public function collect(User $user, Carbon $start, Carbon $end): array
     {
+        $withdrawals = $this->collectByType('Withdrawal', $start, $end);
+
         return [
-            'withdrawals'   => $this->collectByType('Withdrawal', $start, $end),
-            'deposits'      => $this->collectByType('Deposit', $start, $end),
-            'transfers'     => $this->collectByType('Transfer', $start, $end),
-            'accounts'      => $this->collectAccounts($user),
-            'budgets'       => $this->collectBudgets(),
-            'categories'    => $this->collectCategories(),
-            'subscriptions' => $this->collectSubscriptions(),
-            'rules'         => $this->collectRules(),
+            'withdrawals'      => $withdrawals,
+            'deposits'         => $this->collectByType('Deposit', $start, $end),
+            'transfers'        => $this->collectByType('Transfer', $start, $end),
+            'accounts'         => $this->collectAccounts($user),
+            'budgets'          => $this->collectBudgets(),
+            'categories'       => $this->collectCategories(),
+            'subscriptions'    => $this->collectSubscriptions(),
+            'rules'            => $this->collectRules(),
+            'spending_report'  => $this->buildSpendingReport($withdrawals, $start, $end),
         ];
     }
 
@@ -59,6 +62,62 @@ class BudgetPlanDataCollector
         usort($result, static fn (array $a, array $b): int => strcmp($a['date'], $b['date']));
 
         return $result;
+    }
+
+    /**
+     * Group withdrawals by merchant (destination account) and compute totals,
+     * counts, averages, and monthly breakdowns — mirroring the spending-report
+     * artisan command output.
+     */
+    private function buildSpendingReport(array $withdrawals, Carbon $start, Carbon $end): array
+    {
+        if (empty($withdrawals)) {
+            return [
+                'by_merchant'    => [],
+                'monthly_totals' => [],
+                'monthly_avg'    => 0,
+                'total'          => 0,
+                'txn_count'      => count($withdrawals),
+            ];
+        }
+
+        $byMerchant  = [];
+        $byMonth     = [];
+        $grandTotal  = 0.0;
+
+        foreach ($withdrawals as $w) {
+            $merchant = $w['destination_account'] ?: '(unknown)';
+            $amount   = abs((float) $w['amount']);
+            $month    = substr($w['date'], 0, 7);
+
+            if (!isset($byMerchant[$merchant])) {
+                $byMerchant[$merchant] = ['total' => 0.0, 'count' => 0];
+            }
+            $byMerchant[$merchant]['total'] += $amount;
+            $byMerchant[$merchant]['count']++;
+
+            $byMonth[$month] = ($byMonth[$month] ?? 0.0) + $amount;
+            $grandTotal     += $amount;
+        }
+
+        uasort($byMerchant, static fn (array $a, array $b): int => $b['total'] <=> $a['total']);
+
+        foreach ($byMerchant as $merchant => &$data) {
+            $data['avg'] = $data['count'] > 0 ? round($data['total'] / $data['count'], 2) : 0;
+        }
+        unset($data);
+
+        ksort($byMonth);
+        $numMonths  = max(1, count($byMonth));
+        $monthlyAvg = round($grandTotal / $numMonths, 2);
+
+        return [
+            'by_merchant'    => $byMerchant,
+            'monthly_totals' => $byMonth,
+            'monthly_avg'    => $monthlyAvg,
+            'total'          => round($grandTotal, 2),
+            'txn_count'      => count($withdrawals),
+        ];
     }
 
     private function collectAccounts(User $user): array
