@@ -86,6 +86,11 @@ class Budget extends Model
         return $this->hasMany(BudgetLimit::class);
     }
 
+    public function piggyBanks(): HasMany
+    {
+        return $this->hasMany(PiggyBank::class);
+    }
+
     /**
      * Get all of the notes.
      */

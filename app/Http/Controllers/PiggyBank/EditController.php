@@ -28,6 +28,7 @@ use FireflyIII\Helpers\Attachments\AttachmentHelperInterface;
 use FireflyIII\Http\Controllers\Controller;
 use FireflyIII\Http\Requests\PiggyBankUpdateRequest;
 use FireflyIII\Models\PiggyBank;
+use FireflyIII\Repositories\Budget\BudgetRepositoryInterface;
 use FireflyIII\Repositories\PiggyBank\PiggyBankRepositoryInterface;
 use FireflyIII\Support\Facades\Preferences;
 use FireflyIII\Support\Facades\Steam;
@@ -43,6 +44,7 @@ use Illuminate\View\View;
 class EditController extends Controller
 {
     private AttachmentHelperInterface $attachments;
+    private BudgetRepositoryInterface $budgetRepos;
     private PiggyBankRepositoryInterface $piggyRepos;
 
     /**
@@ -57,6 +59,7 @@ class EditController extends Controller
             app('view')->share('mainTitleIcon', 'fa-bullseye');
 
             $this->attachments = app(AttachmentHelperInterface::class);
+            $this->budgetRepos = app(BudgetRepositoryInterface::class);
             $this->piggyRepos  = app(PiggyBankRepositoryInterface::class);
 
             return $next($request);
@@ -86,6 +89,7 @@ class EditController extends Controller
             'accounts'                => [],
             'object_group'            => null !== $piggyBank->objectGroups->first() ? $piggyBank->objectGroups->first()->title : '',
             'notes'                   => null === $note ? '' : $note->text,
+            'budget_id'               => (int) $piggyBank->budget_id,
         ];
         foreach ($piggyBank->accounts as $account) {
             $preFilled['accounts'][] = $account->id;
@@ -101,11 +105,14 @@ class EditController extends Controller
         }
         session()->forget('piggy-banks.edit.fromUpdate');
 
+        $budgets = app('expandedform')->makeSelectListWithEmpty($this->budgetRepos->getActiveBudgets());
+
         return view('piggy-banks.edit', [
             'subTitle'     => $subTitle,
             'subTitleIcon' => $subTitleIcon,
             'piggyBank'    => $piggyBank,
             'preFilled'    => $preFilled,
+            'budgets'      => $budgets,
         ]);
     }
 

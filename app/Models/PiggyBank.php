@@ -53,6 +53,7 @@ class PiggyBank extends Model
         'active',
         'transaction_currency_id',
         'native_target_amount',
+        'budget_id',
     ];
 
     /**
@@ -84,6 +85,11 @@ class PiggyBank extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);
+    }
+
+    public function budget(): BelongsTo
+    {
+        return $this->belongsTo(Budget::class);
     }
 
     public function accounts(): BelongsToMany

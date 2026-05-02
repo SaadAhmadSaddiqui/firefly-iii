@@ -57,6 +57,7 @@ class PiggyBankUpdateRequest extends FormRequest
             'transaction_currency_id' => $this->convertInteger('transaction_currency_id'),
             'notes'                   => $this->stringWithNewlines('notes'),
             'object_group_title'      => $this->convertString('object_group'),
+            'budget_id'               => $this->convertInteger('budget_id') ?: null,
         ];
         if (!is_array($accounts)) {
             $accounts = [];
@@ -87,6 +88,7 @@ class PiggyBankUpdateRequest extends FormRequest
             'order'                   => 'integer|max:32768|min:1',
             'object_group'            => 'min:0|max:255',
             'notes'                   => 'min:1|max:32768|nullable',
+            'budget_id'               => 'nullable|integer|belongsToUser:budgets',
         ];
     }
 

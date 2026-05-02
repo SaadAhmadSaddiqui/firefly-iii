@@ -38,6 +38,7 @@
                     <div class="box-body">
                         {{ ExpandedForm.date('start_date') }}
                         {{ ExpandedForm.date('target_date') }}
+                        {{ ExpandedForm.select('budget_id', budgets, preFilled.budget_id|default(0), {label: trans('firefly.linked_budget'), helpText: trans('firefly.piggy_bank_linked_budget_help')}) }}
                         {{ ExpandedForm.textarea('notes', null, {helpText: trans('firefly.field_supports_markdown')}) }}
                         {{ ExpandedForm.file('attachments[]', {'multiple': 'multiple','helpText': trans('firefly.upload_max_file_size', {'size': uploadSize|filesize}) }) }}
                         {{ ExpandedForm.objectGroup() }}

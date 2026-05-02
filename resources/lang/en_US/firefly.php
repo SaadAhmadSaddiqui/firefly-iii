@@ -2496,6 +2496,7 @@ return [
     'coveredWithTags'                                     => 'Covered with tags',
     'leftInBudget'                                        => 'Left in budget',
     'left_in_debt'                                        => 'Amount due',
+    'available'                                           => 'Available',
     'sumOfSums'                                           => 'Sum of sums',
     'noCategory'                                          => '(no category)',
     'notCharged'                                          => 'Not charged (yet)',
@@ -2556,6 +2557,8 @@ return [
     'average_spending_per_account'                        => 'Average spending per account',
     'average_income_per_account'                          => 'Average income per account',
     'total'                                               => 'Total',
+    'positive_sum'                                        => 'Sum of positives',
+    'negative_sum'                                        => 'Sum of negatives',
     'description'                                         => 'Description',
     'sum_of_period'                                       => 'Sum of period',
     'average_in_period'                                   => 'Average in period',
@@ -3075,4 +3078,9 @@ return [
     'previous'                                            => 'Previous',
     'next'                                                => 'Next',
     'jump_to_current'                                     => 'Back to current period',
+
+    // piggy bank budget link
+    'linked_budget'                                       => 'Linked budget',
+    'no_budget_linked'                                    => '(no budget)',
+    'piggy_bank_linked_budget_help'                       => 'When a budget is linked, piggy bank contributions will count as spending against this budget.',
 ];

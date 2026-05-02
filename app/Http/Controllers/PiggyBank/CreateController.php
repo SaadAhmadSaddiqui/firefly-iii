@@ -28,6 +28,7 @@ use FireflyIII\Exceptions\FireflyException;
 use FireflyIII\Helpers\Attachments\AttachmentHelperInterface;
 use FireflyIII\Http\Controllers\Controller;
 use FireflyIII\Http\Requests\PiggyBankStoreRequest;
+use FireflyIII\Repositories\Budget\BudgetRepositoryInterface;
 use FireflyIII\Repositories\PiggyBank\PiggyBankRepositoryInterface;
 use FireflyIII\Support\Facades\Preferences;
 use Illuminate\Contracts\View\Factory;
@@ -43,6 +44,7 @@ use Illuminate\View\View;
 class CreateController extends Controller
 {
     private AttachmentHelperInterface $attachments;
+    private BudgetRepositoryInterface $budgetRepos;
     private PiggyBankRepositoryInterface $piggyRepos;
 
     /**
@@ -57,6 +59,7 @@ class CreateController extends Controller
             app('view')->share('mainTitleIcon', 'fa-bullseye');
 
             $this->attachments = app(AttachmentHelperInterface::class);
+            $this->budgetRepos = app(BudgetRepositoryInterface::class);
             $this->piggyRepos  = app(PiggyBankRepositoryInterface::class);
 
             return $next($request);
@@ -84,7 +87,9 @@ class CreateController extends Controller
         }
         session()->forget('piggy-banks.create.fromStore');
 
-        return view('piggy-banks.create', ['subTitle'     => $subTitle, 'subTitleIcon' => $subTitleIcon, 'preFilled'    => $preFilled]);
+        $budgets = app('expandedform')->makeSelectListWithEmpty($this->budgetRepos->getActiveBudgets());
+
+        return view('piggy-banks.create', ['subTitle' => $subTitle, 'subTitleIcon' => $subTitleIcon, 'preFilled' => $preFilled, 'budgets' => $budgets]);
     }
 
     /**
