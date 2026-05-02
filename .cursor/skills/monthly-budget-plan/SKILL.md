@@ -39,7 +39,7 @@ Collect from the user (ask if not provided):
 | Any payments already made today | Spotify AED 41.24 | Deducted from starting balance |
 | Number of months to analyze | 3 | Default: 3 months lookback |
 
-**Critical**: The balance the user gives you is their CURRENT total after salary. Do NOT add salary on top.
+**Critical**: The balance the user gives you is their CURRENT total after salary. Do NOT add salary on top. Salary arrives ~27th of the PREVIOUS month and is already in the bank balance. The next salary (~27th-28th of the current month) is for NEXT month's budget, not this month's.
 
 ### Phase 2: Extract Transaction Data
 
@@ -143,7 +143,22 @@ Present these as a checklist the user can work through in the Firefly III UI.
 | Rent | AED 14,500 quarterly (use Piggy Bank + Recurring) |
 | Salary source | Deel AE FZE |
 | Salary approx | AED 25,724 |
+| Salary timing | Received ~27th of previous month, used for the NEXT calendar month |
 | Database | PostgreSQL (credentials in .env) |
+
+### Salary Timing (Critical)
+
+Salary arrives around the **27th of the previous month** and funds the **next calendar month**.
+For example, salary received on March 27 is the budget for April. Salary received on April 28
+is the budget for May — do NOT include it in April's plan.
+
+When the user states their bank balance at the start of a budget month (e.g., April 1), the
+salary is **already included** in that balance. There is no additional salary expected during the
+budget month. This means:
+- No "cash flow warning" about waiting for salary
+- The stated bank balance is the **total available** for the month
+- All obligations, savings, and spending must fit within that balance
+- Credit cards can be used freely during the month since the money to pay them off is already in the bank
 
 ## Firefly III Entity Concepts (for accurate recommendations)
 

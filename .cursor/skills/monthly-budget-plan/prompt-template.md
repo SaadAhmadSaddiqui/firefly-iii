@@ -12,13 +12,14 @@ Create my monthly budget plan for [MONTH YEAR].
 ## My Financial Situation
 
 - **Current bank balance (Emirates NBD):** AED [AMOUNT]
-  (This is my total balance RIGHT NOW — salary already received, do NOT add salary.)
+  (This is my total balance RIGHT NOW — salary was received ~27th of last month and is already
+  included. The next salary arriving ~27th-28th of this month is for NEXT month, not this one.)
 - **Cash on hand:** AED [AMOUNT or "none"]
 - **Credit card balances:**
   - EI RTA CC: AED [AMOUNT or "0"]
   - Mashreq CC: AED [AMOUNT or "0"]
   - FAB CC: AED [AMOUNT or "0"]
-- **Budget period:** [START DATE] to [END DATE] (payday to payday)
+- **Budget period:** [MONTH] 1-30/31 (calendar month; salary already received)
 
 ## Already Paid Today
 
@@ -92,6 +93,7 @@ The AI will:
 ## Tips
 
 - **Be honest about cash on hand** — it's your safety net, not spending money
+- **Salary timing** — salary arrives ~27th of the previous month. Your bank balance already includes it. The next salary (~27th-28th this month) is for next month, not this one. No additional income to expect.
 - **List ALL subscription changes** — paused, cancelled, new ones. The AI checks against last month's data but your confirmation prevents errors.
 - **Mention any unusual expenses coming** — car repair, medical procedure, travel. These need to be carved out of the budget.
 - **"Tight month" vs "normal month"** matters — tight months freeze shopping and activities entirely. Normal months give modest allowances.
