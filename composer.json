@@ -128,7 +128,6 @@
         "rector/rector": "^2.3",
         "thecodingmachine/phpstan-safe-rule": "^1.4"
     },
-
     "suggest": {},
     "autoload": {
         "psr-4": {
@@ -202,8 +201,8 @@
         "backup:remote": "@php artisan firefly:backup-remote",
         "backup:list": "ls -lht storage/backups/*.tar.gz 2>/dev/null || echo 'No backups found.'",
         "restore:latest": "bash -c 'LATEST=$(ls -t storage/backups/*.tar.gz 2>/dev/null | head -1); if [ -z \"$LATEST\" ]; then echo \"No backups found.\"; exit 1; fi; echo \"Restoring: $LATEST\"; echo yes | php artisan firefly:restore storage/backups/$(basename $LATEST)'",
-        "serve": "@php artisan serve --port=80 --host=127.0.0.1",
-        "serve:start": "powershell -NoProfile -Command \"Start-Process -FilePath php -ArgumentList 'artisan','serve','--port=80','--host=127.0.0.1' -WorkingDirectory (Get-Location) -WindowStyle Hidden; Write-Host 'Firefly III server started in background (port 80). Use composer serve:stop to stop it.'\"",
+        "serve": "@php artisan serve --port=80 --host=0.0.0.0",
+        "serve:start": "powershell -NoProfile -Command \"Start-Process -FilePath php -ArgumentList 'artisan','serve','--port=80','--host=0.0.0.0' -WorkingDirectory (Get-Location) -WindowStyle Hidden; Write-Host 'Firefly III server started in background (port 80). Use composer serve:stop to stop it.'\"",
         "serve:stop": "powershell -NoProfile -Command \"Get-Process php -ErrorAction SilentlyContinue | Stop-Process; Write-Host 'PHP server process stopped.'\""
     },
     "config": {
