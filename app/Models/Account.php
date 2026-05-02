@@ -124,7 +124,7 @@ class Account extends Model
 
     public function piggyBanks(): BelongsToMany
     {
-        return $this->belongsToMany(PiggyBank::class);
+        return $this->belongsToMany(PiggyBank::class)->withPivot(['current_amount', 'native_current_amount']);
     }
 
     public function primaryPeriodStatistics(): MorphMany

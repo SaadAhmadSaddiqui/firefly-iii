@@ -167,7 +167,11 @@ class IndexController extends Controller
         [$startBalances, $endBalances] = Steam::accountsBalancesInRange($accounts, $start, $now, $this->primaryCurrency, $this->convertToPrimary);
         $activities                    = Steam::getLastActivities($ids);
 
-        $accounts->each(function (Account $account) use ($activities, $startBalances, $endBalances): void {
+        if ('asset' === $objectType) {
+            $accounts->load('piggyBanks');
+        }
+
+        $accounts->each(function (Account $account) use ($activities, $startBalances, $endBalances, $objectType): void {
             $interest                     = (string) $this->repository->getMetaValue($account, 'interest');
             $interest                     = '' === $interest ? '0' : $interest;
             $currency                     = $this->repository->getAccountCurrency($account);
@@ -184,6 +188,24 @@ class IndexController extends Controller
             $account->current_debt        = $this->repository->getMetaValue($account, 'current_debt') ?? '-';
             $account->currency            = $currency ?? $this->primaryCurrency;
             $account->iban                = implode(' ', str_split((string) $account->iban, 4));
+
+            $piggyTotal                   = '0';
+            $piggyDetails                 = [];
+            if ('asset' === $objectType) {
+                foreach ($account->piggyBanks as $piggy) {
+                    $amt = (string) ($piggy->pivot->current_amount ?? '0');
+                    if (1 === bccomp($amt, '0')) {
+                        $piggyTotal     = bcadd($piggyTotal, $amt);
+                        $piggyDetails[] = [
+                            'id'     => $piggy->id,
+                            'name'   => $piggy->name,
+                            'amount' => $amt,
+                        ];
+                    }
+                }
+            }
+            $account->piggyBankTotal      = $piggyTotal;
+            $account->piggyBankDetails    = $piggyDetails;
         });
         // make paginator:
         Log::debug(sprintf('Count of accounts before LAP: %d', $accounts->count()));
@@ -195,6 +217,8 @@ class IndexController extends Controller
         Log::debug(sprintf('Count of accounts after LAP (1): %d', $accounts->count()));
         Log::debug(sprintf('Count of accounts after LAP (2): %d', $accounts->getCollection()->count()));
 
+        $balanceSums = $this->getBalanceSums($accounts->getCollection());
+
         return view('accounts.index', [
             'objectType'    => $objectType,
             'inactiveCount' => $inactiveCount,
@@ -202,7 +226,56 @@ class IndexController extends Controller
             'subTitle'      => $subTitle,
             'page'          => $page,
             'accounts'      => $accounts,
+            'balanceSums'   => $balanceSums,
         ]);
+    }
+
+    private function getBalanceSums(\Illuminate\Support\Collection $accounts): array
+    {
+        $sums = [];
+        foreach ($accounts as $account) {
+            $currencyId = $account->currency->id;
+            if (!isset($sums[$currencyId])) {
+                $sums[$currencyId] = [
+                    'currency_symbol'         => $account->currency->symbol,
+                    'currency_name'           => $account->currency->name,
+                    'currency_code'           => $account->currency->code,
+                    'currency_decimal_places' => $account->currency->decimal_places,
+                    'balance_positive'        => '0',
+                    'balance_negative'        => '0',
+                    'balance_total'           => '0',
+                    'diff_positive'           => '0',
+                    'diff_negative'           => '0',
+                    'diff_total'              => '0',
+                    'piggy_total'             => '0',
+                    'available_total'         => '0',
+                ];
+            }
+
+            $balance = $account->endBalances['balance'] ?? '0';
+            $sums[$currencyId]['balance_total'] = bcadd($sums[$currencyId]['balance_total'], (string) $balance);
+            if (1 === bccomp((string) $balance, '0')) {
+                $sums[$currencyId]['balance_positive'] = bcadd($sums[$currencyId]['balance_positive'], (string) $balance);
+            }
+            if (-1 === bccomp((string) $balance, '0')) {
+                $sums[$currencyId]['balance_negative'] = bcadd($sums[$currencyId]['balance_negative'], (string) $balance);
+            }
+
+            $piggyTotal = $account->piggyBankTotal ?? '0';
+            $sums[$currencyId]['piggy_total']     = bcadd($sums[$currencyId]['piggy_total'], (string) $piggyTotal);
+            $sums[$currencyId]['available_total']  = bcadd($sums[$currencyId]['available_total'], bcsub((string) $balance, (string) $piggyTotal));
+
+            $diff = $account->differences['balance'] ?? '0';
+            $sums[$currencyId]['diff_total'] = bcadd($sums[$currencyId]['diff_total'], (string) $diff);
+            if (1 === bccomp((string) $diff, '0')) {
+                $sums[$currencyId]['diff_positive'] = bcadd($sums[$currencyId]['diff_positive'], (string) $diff);
+            }
+            if (-1 === bccomp((string) $diff, '0')) {
+                $sums[$currencyId]['diff_negative'] = bcadd($sums[$currencyId]['diff_negative'], (string) $diff);
+            }
+        }
+
+        return $sums;
     }
 
     private function subtract(array $startBalances, array $endBalances): array

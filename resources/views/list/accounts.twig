@@ -26,6 +26,9 @@
         {% if objectType != 'liabilities' %}
             <th style="text-align: right;" data-col="balance">{{ trans('list.currentBalance') }}</th>
         {% endif %}
+        {% if objectType == 'asset' %}
+            <th style="text-align: right;" data-col="available">{{ trans('firefly.available') }}</th>
+        {% endif %}
         {% if objectType == 'liabilities' %}
             <th style="text-align: right;" data-col="balance">
                 {{ trans('firefly.left_in_debt') }}
@@ -91,6 +94,25 @@
                 </span>
             </td>
             {% endif %}
+            {% if objectType == 'asset' %}
+            <td style="text-align: right;" data-col="available">
+                {% set accountBalance = account.endBalances['balance'] ?? '0' %}
+                {% set availableBalance = accountBalance - account.piggyBankTotal %}
+                <span style="margin-right:5px;">
+                    {{ formatAmountBySymbol(availableBalance, account.currency.symbol, account.currency.decimal_places) }}
+                </span>
+                {% if account.piggyBankDetails|length > 0 %}
+                <br>
+                <small class="text-muted">
+                    {% for piggy in account.piggyBankDetails %}
+                        <a href="{{ route('piggy-banks.show', piggy.id) }}">{{ piggy.name }}</a>:
+                        -{{ formatAmountBySymbol(piggy.amount, account.currency.symbol, account.currency.decimal_places, false) }}
+                        {% if not loop.last %}<br>{% endif %}
+                    {% endfor %}
+                </small>
+                {% endif %}
+            </td>
+            {% endif %}
             {% if objectType == 'liabilities' %}
             <td style="text-align: right;" data-col="balance">
                 {% if '-' != account.current_debt %}
@@ -149,6 +171,121 @@
         </tr>
 
     {% endfor %}
+    {% if balanceSums is defined and balanceSums|length > 0 %}
+        {% for sum in balanceSums %}
+            {% if '0' != sum.balance_positive %}
+                <tr>
+                    <td class="hidden-sm hidden-xs">&nbsp;</td>
+                    <td data-col="name" style="text-align: right;">
+                        <small>{{ 'positive_sum'|_ }} ({{ sum.currency_name }})</small>
+                    </td>
+                    {% if objectType == 'asset' %}
+                        <td class="hidden-sm hidden-xs hidden-md" data-col="role">&nbsp;</td>
+                    {% endif %}
+                    {% if objectType == 'liabilities' %}
+                        <td data-col="liability_type">&nbsp;</td>
+                        <td data-col="liability_direction">&nbsp;</td>
+                        <td data-col="interest">&nbsp;</td>
+                    {% endif %}
+                    <td class="hidden-sm hidden-xs" data-col="account_number">&nbsp;</td>
+                    {% if objectType != 'liabilities' %}
+                        <td style="text-align: right;" data-col="balance">
+                            {{ formatAmountBySymbol(sum.balance_positive, sum.currency_symbol, sum.currency_decimal_places) }}
+                        </td>
+                    {% endif %}
+                    {% if objectType == 'asset' %}
+                        <td data-col="available">&nbsp;</td>
+                    {% endif %}
+                    {% if objectType == 'liabilities' %}
+                        <td style="text-align: right;" data-col="balance">&nbsp;</td>
+                    {% endif %}
+                    <td class="hidden-sm hidden-xs" data-col="active">&nbsp;</td>
+                    {% if objectType != 'liabilities' %}
+                        <td class="hidden-sm hidden-xs hidden-md" data-col="last_activity">&nbsp;</td>
+                    {% endif %}
+                    <td class="hidden-sm hidden-xs hidden-md" style="text-align: right;" data-col="balance_diff">
+                        {{ formatAmountBySymbol(sum.diff_positive, sum.currency_symbol, sum.currency_decimal_places) }}
+                    </td>
+                    <td class="hidden-sm hidden-xs">&nbsp;</td>
+                </tr>
+            {% endif %}
+            {% if '0' != sum.balance_negative %}
+                <tr>
+                    <td class="hidden-sm hidden-xs">&nbsp;</td>
+                    <td data-col="name" style="text-align: right;">
+                        <small>{{ 'negative_sum'|_ }} ({{ sum.currency_name }})</small>
+                    </td>
+                    {% if objectType == 'asset' %}
+                        <td class="hidden-sm hidden-xs hidden-md" data-col="role">&nbsp;</td>
+                    {% endif %}
+                    {% if objectType == 'liabilities' %}
+                        <td data-col="liability_type">&nbsp;</td>
+                        <td data-col="liability_direction">&nbsp;</td>
+                        <td data-col="interest">&nbsp;</td>
+                    {% endif %}
+                    <td class="hidden-sm hidden-xs" data-col="account_number">&nbsp;</td>
+                    {% if objectType != 'liabilities' %}
+                        <td style="text-align: right;" data-col="balance">
+                            {{ formatAmountBySymbol(sum.balance_negative, sum.currency_symbol, sum.currency_decimal_places) }}
+                        </td>
+                    {% endif %}
+                    {% if objectType == 'asset' %}
+                        <td data-col="available">&nbsp;</td>
+                    {% endif %}
+                    {% if objectType == 'liabilities' %}
+                        <td style="text-align: right;" data-col="balance">&nbsp;</td>
+                    {% endif %}
+                    <td class="hidden-sm hidden-xs" data-col="active">&nbsp;</td>
+                    {% if objectType != 'liabilities' %}
+                        <td class="hidden-sm hidden-xs hidden-md" data-col="last_activity">&nbsp;</td>
+                    {% endif %}
+                    <td class="hidden-sm hidden-xs hidden-md" style="text-align: right;" data-col="balance_diff">
+                        {{ formatAmountBySymbol(sum.diff_negative, sum.currency_symbol, sum.currency_decimal_places) }}
+                    </td>
+                    <td class="hidden-sm hidden-xs">&nbsp;</td>
+                </tr>
+            {% endif %}
+            <tr>
+                <td class="hidden-sm hidden-xs">&nbsp;</td>
+                <td data-col="name" style="text-align: right;">
+                    <small><strong>{{ 'total'|_ }} ({{ sum.currency_name }})</strong></small>
+                </td>
+                {% if objectType == 'asset' %}
+                    <td class="hidden-sm hidden-xs hidden-md" data-col="role">&nbsp;</td>
+                {% endif %}
+                {% if objectType == 'liabilities' %}
+                    <td data-col="liability_type">&nbsp;</td>
+                    <td data-col="liability_direction">&nbsp;</td>
+                    <td data-col="interest">&nbsp;</td>
+                {% endif %}
+                <td class="hidden-sm hidden-xs" data-col="account_number">&nbsp;</td>
+                {% if objectType != 'liabilities' %}
+                    <td style="text-align: right;" data-col="balance">
+                        {{ formatAmountBySymbol(sum.balance_total, sum.currency_symbol, sum.currency_decimal_places) }}
+                    </td>
+                {% endif %}
+                {% if objectType == 'asset' %}
+                    <td style="text-align: right;" data-col="available">
+                        <strong>{{ formatAmountBySymbol(sum.available_total, sum.currency_symbol, sum.currency_decimal_places) }}</strong>
+                        {% if sum.piggy_total != '0' %}
+                        <br><small class="text-muted">{{ formatAmountBySymbol(sum.piggy_total, sum.currency_symbol, sum.currency_decimal_places, false) }} in piggy banks</small>
+                        {% endif %}
+                    </td>
+                {% endif %}
+                {% if objectType == 'liabilities' %}
+                    <td style="text-align: right;" data-col="balance">&nbsp;</td>
+                {% endif %}
+                <td class="hidden-sm hidden-xs" data-col="active">&nbsp;</td>
+                {% if objectType != 'liabilities' %}
+                    <td class="hidden-sm hidden-xs hidden-md" data-col="last_activity">&nbsp;</td>
+                {% endif %}
+                <td class="hidden-sm hidden-xs hidden-md" style="text-align: right;" data-col="balance_diff">
+                    {{ formatAmountBySymbol(sum.diff_total, sum.currency_symbol, sum.currency_decimal_places) }}
+                </td>
+                <td class="hidden-sm hidden-xs">&nbsp;</td>
+            </tr>
+        {% endfor %}
+    {% endif %}
     </tbody>
 </table>
 <div style="padding-left:8px;">
@@ -173,6 +310,9 @@
             { key: 'balance', label: '{{ trans("list.currentBalance") }}', visible: true },
             {% else %}
             { key: 'balance', label: '{{ trans("firefly.left_in_debt") }}', visible: true },
+            {% endif %}
+            {% if objectType == 'asset' %}
+            { key: 'available', label: '{{ trans("firefly.available") }}', visible: true },
             {% endif %}
             { key: 'active', label: '{{ trans("list.active") }}', visible: true },
             {% if objectType != 'liabilities' %}
