@@ -264,10 +264,48 @@ final class IndexController extends Controller
                     $array['spent'][$currency->id]['currency_decimal_places'] = $currency->decimal_places;
                 }
             }
+
+            $piggyAllocations = $this->getPiggyBankAllocations($current, $start, $end);
+            foreach ($piggyAllocations as $currencyId => $allocated) {
+                if (isset($array['spent'][$currencyId])) {
+                    $array['spent'][$currencyId]['spent'] = bcadd($array['spent'][$currencyId]['spent'], $allocated);
+                } else {
+                    $currency = $currencies->first(fn (TransactionCurrency $c) => $c->id === $currencyId);
+                    if (null !== $currency) {
+                        $array['spent'][$currencyId] = [
+                            'spent'                   => $allocated,
+                            'currency_id'             => $currency->id,
+                            'currency_symbol'         => $currency->symbol,
+                            'currency_decimal_places' => $currency->decimal_places,
+                        ];
+                    }
+                }
+            }
+
             $budgets[]            = $array;
         }
 
         return $budgets;
+    }
+
+    private function getPiggyBankAllocations(Budget $budget, Carbon $start, Carbon $end): array
+    {
+        $allocations = [];
+        foreach ($budget->piggyBanks as $piggyBank) {
+            $currencyId = $piggyBank->transaction_currency_id;
+            $sum        = (string) $piggyBank->piggyBankEvents()
+                ->where('date', '>=', $start->format('Y-m-d'))
+                ->where('date', '<=', $end->format('Y-m-d'))
+                ->sum('amount');
+            if (0 !== bccomp($sum, '0')) {
+                $allocations[$currencyId] = bcadd(
+                    $allocations[$currencyId] ?? '0',
+                    bcmul($sum, '-1')
+                );
+            }
+        }
+
+        return $allocations;
     }
 
     private function getSums(array $budgets): array

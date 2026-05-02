@@ -412,6 +412,31 @@
                             {% endfor %}
                             {# END OF BUDGET ROW #}
                             </tbody>
+                            <tfoot>
+                            {% set totalBudgeted = 0 %}
+                            {% set totalSpent = 0 %}
+                            {% for budget in budgets %}
+                                {% for budgetLimit in budget.budgeted %}
+                                    {% set totalBudgeted = totalBudgeted + budgetLimit.amount %}
+                                {% endfor %}
+                                {% for spentInfo in budget.spent %}
+                                    {% set totalSpent = totalSpent + spentInfo.spent %}
+                                {% endfor %}
+                            {% endfor %}
+                            <tr style="font-weight:bold; border-top: 2px solid #666;">
+                                <td class="hidden-sm hidden-xs">&nbsp;</td>
+                                <td>{{ 'sum'|_ }}</td>
+                                <td style="text-align:right;">
+                                    {{ formatAmountBySymbol(totalBudgeted, primaryCurrency.symbol, primaryCurrency.decimal_places) }}
+                                </td>
+                                <td class="hidden-sm hidden-xs" style="text-align:right;">
+                                    {{ formatAmountBySymbol(totalSpent, primaryCurrency.symbol, primaryCurrency.decimal_places) }}
+                                </td>
+                                <td style="text-align:right;">
+                                    {{ formatAmountBySymbol(totalBudgeted + totalSpent, primaryCurrency.symbol, primaryCurrency.decimal_places) }}
+                                </td>
+                            </tr>
+                            </tfoot>
                         </table>
                     </div>
                     <div class="box-footer">
