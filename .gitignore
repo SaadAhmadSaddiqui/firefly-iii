@@ -40,6 +40,7 @@ storage/budget-plans/
 
 # ignore transaction files
 *-transactions*.json
+CardHistory_*.csv
 
 # ignore ngrok files
 ngrok_recovery_codes.txt
