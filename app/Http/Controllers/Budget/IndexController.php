@@ -234,16 +234,32 @@ final class IndexController extends Controller
             /** @var BudgetLimit $limit */
             foreach ($budgetLimits as $limit) {
                 Log::debug(sprintf('Working on budget limit #%d', $limit->id));
-                $currency            = $limit->transactionCurrency ?? $primaryCurrency;
-                $amount              = Steam::bcround($limit->amount, $currency->decimal_places);
+                $currency       = $limit->transactionCurrency ?? $primaryCurrency;
+                $amount         = Steam::bcround($limit->amount, $currency->decimal_places);
+                $limitStart     = $limit->start_date->copy()->startOfDay();
+                $limitEnd       = $limit->end_date->copy()->endOfDay();
+                $inRange        = $limit->start_date->isSameDay($start) && $limit->end_date->isSameDay($end);
+                $amountInPeriod = $this->getBudgetLimitAmountForPeriod($limit, $start, $end, $currency);
+                $daysPassed     = $this->activeDaysPassed($start, $end);
+                $daysLeft       = $this->activeDaysLeft($start, $end);
+                $limitDaysLeft  = $this->activeDaysLeft($limitStart, $limitEnd);
+                $limitSpent     = $this->getSpentForBudgetAndCurrency($current, $currency, $limitStart, $limitEnd);
+                $limitSpent     = bcadd($limitSpent, $this->getPiggyBankAllocations($current, $limitStart, $limitEnd, $currency->id)[$currency->id] ?? '0');
+
                 $array['budgeted'][] = [
                     'id'                      => $limit->id,
                     'amount'                  => $amount,
+                    'amount_in_period'        => $amountInPeriod,
                     'notes'                   => $this->blRepository->getNoteText($limit),
                     'start_date'              => $limit->start_date->isoFormat($this->monthAndDayFormat),
                     'end_date'                => $limit->end_date->isoFormat($this->monthAndDayFormat),
-                    'in_range'                => $limit->start_date->isSameDay($start) && $limit->end_date->isSameDay($end),
+                    'in_range'                => $inRange,
                     'total_days'              => $limit->start_date->diffInDays($limit->end_date) + 1,
+                    'active_days_passed'      => $daysPassed,
+                    'active_days_left'        => $daysLeft,
+                    'limit_days_left'         => $limitDaysLeft,
+                    'limit_spent'             => $limitSpent,
+                    'limit_left'              => bcadd($amount, $limitSpent),
                     'currency_id'             => $currency->id,
                     'currency_symbol'         => $currency->symbol,
                     'currency_name'           => $currency->name,
@@ -256,30 +272,34 @@ final class IndexController extends Controller
 
             /** @var TransactionCurrency $currency */
             foreach ($currencies as $currency) {
-                $spentArr = $this->opsRepository->sumExpenses($start, $end, null, new Collection()->push($current), $currency);
-                if (array_key_exists($currency->id, $spentArr) && array_key_exists('sum', $spentArr[$currency->id])) {
-                    $array['spent'][$currency->id]['spent']                   = $spentArr[$currency->id]['sum'];
+                $spent = $this->getSpentForBudgetAndCurrency($current, $currency, $start, $end);
+                if (0 !== bccomp($spent, '0')) {
+                    $array['spent'][$currency->id]['spent']                   = $spent;
                     $array['spent'][$currency->id]['currency_id']             = $currency->id;
                     $array['spent'][$currency->id]['currency_symbol']         = $currency->symbol;
                     $array['spent'][$currency->id]['currency_decimal_places'] = $currency->decimal_places;
+                    $array['spent'][$currency->id]['active_days_passed']      = $this->activeDaysPassed($start, $end);
+                    $array['spent'][$currency->id]['active_days_left']        = $this->activeDaysLeft($start, $end);
                 }
-            }
 
-            $piggyAllocations = $this->getPiggyBankAllocations($current, $start, $end);
-            foreach ($piggyAllocations as $currencyId => $allocated) {
-                if (isset($array['spent'][$currencyId])) {
-                    $array['spent'][$currencyId]['spent'] = bcadd($array['spent'][$currencyId]['spent'], $allocated);
-                } else {
-                    $currency = $currencies->first(fn (TransactionCurrency $c) => $c->id === $currencyId);
-                    if (null !== $currency) {
-                        $array['spent'][$currencyId] = [
-                            'spent'                   => $allocated,
-                            'currency_id'             => $currency->id,
-                            'currency_symbol'         => $currency->symbol,
-                            'currency_decimal_places' => $currency->decimal_places,
-                        ];
-                    }
+                $piggyAllocations = $this->getPiggyBankAllocations($current, $start, $end, $currency->id);
+                $allocated        = $piggyAllocations[$currency->id] ?? '0';
+                if (0 === bccomp($allocated, '0')) {
+                    continue;
                 }
+                if (isset($array['spent'][$currency->id])) {
+                    $array['spent'][$currency->id]['spent'] = bcadd($array['spent'][$currency->id]['spent'], $allocated);
+                    continue;
+                }
+
+                $array['spent'][$currency->id] = [
+                    'spent'                   => $allocated,
+                    'currency_id'             => $currency->id,
+                    'currency_symbol'         => $currency->symbol,
+                    'currency_decimal_places' => $currency->decimal_places,
+                    'active_days_passed'      => $this->activeDaysPassed($start, $end),
+                    'active_days_left'        => $this->activeDaysLeft($start, $end),
+                ];
             }
 
             $budgets[]            = $array;
@@ -288,18 +308,51 @@ final class IndexController extends Controller
         return $budgets;
     }
 
-    private function getPiggyBankAllocations(Budget $budget, Carbon $start, Carbon $end): array
+    private function getBudgetLimitAmountForPeriod(BudgetLimit $budgetLimit, Carbon $start, Carbon $end, TransactionCurrency $currency): string
+    {
+        if ($budgetLimit->start_date->isSameDay($start) && $budgetLimit->end_date->isSameDay($end)) {
+            return Steam::bcround($budgetLimit->amount, $currency->decimal_places);
+        }
+
+        $limitStart  = $budgetLimit->start_date->copy()->startOfDay();
+        $limitEnd    = $budgetLimit->end_date->copy()->endOfDay();
+        $periodStart = $start->copy()->max($limitStart);
+        $periodEnd   = $end->copy()->min($limitEnd);
+
+        if ($periodStart->gt($periodEnd)) {
+            return '0';
+        }
+
+        $limitDays    = $budgetLimit->start_date->diffInDays($budgetLimit->end_date) + 1;
+        $periodDays   = $periodStart->diffInDays($periodEnd) + 1;
+        $amountPerDay = bcdiv((string) $budgetLimit->amount, (string) $limitDays, 12);
+
+        return Steam::bcround(bcmul($amountPerDay, (string) $periodDays, 12), $currency->decimal_places);
+    }
+
+    private function getSpentForBudgetAndCurrency(Budget $budget, TransactionCurrency $currency, Carbon $start, Carbon $end): string
+    {
+        $spentArr = $this->opsRepository->sumExpenses($start, $end, null, new Collection()->push($budget), $currency);
+
+        return $spentArr[$currency->id]['sum'] ?? '0';
+    }
+
+    private function getPiggyBankAllocations(Budget $budget, Carbon $start, Carbon $end, ?int $currencyId = null): array
     {
         $allocations = [];
         foreach ($budget->piggyBanks as $piggyBank) {
-            $currencyId = $piggyBank->transaction_currency_id;
-            $sum        = (string) $piggyBank->piggyBankEvents()
+            if (null !== $currencyId && $piggyBank->transaction_currency_id !== $currencyId) {
+                continue;
+            }
+
+            $piggyCurrencyId = $piggyBank->transaction_currency_id;
+            $sum             = (string) $piggyBank->piggyBankEvents()
                 ->where('date', '>=', $start->format('Y-m-d'))
                 ->where('date', '<=', $end->format('Y-m-d'))
                 ->sum('amount');
             if (0 !== bccomp($sum, '0')) {
-                $allocations[$currencyId] = bcadd(
-                    $allocations[$currencyId] ?? '0',
+                $allocations[$piggyCurrencyId] = bcadd(
+                    $allocations[$piggyCurrencyId] ?? '0',
                     bcmul($sum, '-1')
                 );
             }
@@ -337,7 +390,7 @@ final class IndexController extends Controller
                     'currency_symbol'         => $budgeted['currency_symbol'],
                     'currency_decimal_places' => $budgeted['currency_decimal_places'],
                 ];
-                $sums['budgeted'][$currencyId]['amount'] = bcadd($sums['budgeted'][$currencyId]['amount'], (string) $budgeted['amount']);
+                $sums['budgeted'][$currencyId]['amount'] = bcadd($sums['budgeted'][$currencyId]['amount'], (string) $budgeted['amount_in_period']);
 
                 // also calculate how much left from budgeted:
                 $sums['left'][$currencyId]     ??= [
