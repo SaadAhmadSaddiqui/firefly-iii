@@ -20,16 +20,16 @@
                     <div class="row">
                         <div class="col-md-7">
 <pre class="schema-pre">Posting Date,Value date,Description,Debit Amount,Credit Amount
-01/03/2025,,2949491030 - FIND SALT  Dubai  ARE,125.00,
-15/03/2025,,3847291050 - CARREFOUR HYPERMARKET  SHARJAH  UAE,89.50,
-20/03/2025,,Card Payment,,500.00</pre>
+01/03/2025,28/02/2025,2949491030 - FIND SALT  Dubai  ARE,125.00,
+15/03/2025,14/03/2025,3847291050 - CARREFOUR HYPERMARKET  SHARJAH  UAE,89.50,
+20/03/2025,20/03/2025,Card Payment,,500.00</pre>
                         </div>
                         <div class="col-md-5">
                             <table class="table table-condensed table-bordered">
                                 <thead><tr><th>Column</th><th>Description</th></tr></thead>
                                 <tbody>
-                                    <tr><td><code>Posting Date</code></td><td>Transaction date in <code>dd/mm/yyyy</code> format (e.g. 01/03/2025)</td></tr>
-                                    <tr><td><code>Value date</code></td><td>Value date (often empty, not used for import)</td></tr>
+                                    <tr><td><code>Posting Date</code></td><td>When FAB posted the row to your statement (<code>dd/mm/yyyy</code>)</td></tr>
+                                    <tr><td><code>Value date</code></td><td><strong>Used as the transaction date.</strong> Actual purchase/payment date — FAB often posts days later.</td></tr>
                                     <tr><td><code>Description</code></td><td>Reference number + merchant info (e.g. <code>2949491030 - FIND SALT  Dubai  ARE</code>)</td></tr>
                                     <tr><td><code>Debit Amount</code></td><td>Amount debited (purchases) -- empty if credit</td></tr>
                                     <tr><td><code>Credit Amount</code></td><td>Amount credited (refunds/payments) -- empty if debit. <em>Card Payment</em> rows are auto-skipped.</td></tr>

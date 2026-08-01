@@ -64,7 +64,7 @@ class FabParser
     private function mapRow(array $cols, int $sourceAccountId, int $csvLine, string $rawLine = ''): ?array
     {
         $postingDate = trim($cols[0]);
-        $description = trim($cols[1]);
+        $valueDate   = trim($cols[1]);
         $rawDesc     = trim($cols[2]);
         $debitStr    = trim($cols[3]);
         $creditStr   = trim($cols[4]);
@@ -72,11 +72,11 @@ class FabParser
         $debit  = (float) str_replace(',', '', $debitStr);
         $credit = (float) str_replace(',', '', $creditStr);
 
-        if (stripos($rawDesc, 'INSTQ2MLXYPZL100') !== false && $credit > 0) {
+        if ($this->isCardPayment($rawDesc) && $credit > 0) {
             $this->skipped[] = [
                 'reason'        => 'CC payment already imported as transfer',
                 'description'   => $rawDesc,
-                'date'          => $postingDate,
+                'date'          => '' !== $valueDate ? $valueDate : $postingDate,
                 'amount'        => (string) $credit,
                 'currency_code' => 'AED',
                 'type'          => 'deposit',
@@ -93,12 +93,14 @@ class FabParser
             return null;
         }
 
-        $carbonDate = Carbon::createFromFormat('d/m/Y', $postingDate, 'Asia/Dubai')->startOfDay();
+        // FAB posts late — value date is the actual transaction date.
+        $transactionDate = '' !== $valueDate ? $valueDate : $postingDate;
+        $carbonDate      = Carbon::createFromFormat('d/m/Y', $transactionDate, 'Asia/Dubai')->startOfDay();
 
         [$refNumber, $merchantRaw] = $this->parseDescription($rawDesc);
         $merchantName = $this->cleanMerchantName($merchantRaw);
 
-        $externalId = md5(sprintf('%s|%s|%.2f|%d', $postingDate, $rawDesc, $isDebit ? -$amount : $amount, $csvLine));
+        $externalId = md5(sprintf('%s|%s|%.2f|%d', $transactionDate, $rawDesc, $isDebit ? -$amount : $amount, $csvLine));
 
         $notes = sprintf("FAB CSV line %d\nRef: %s\nDescription: %s", $csvLine, $refNumber, $rawDesc);
 
@@ -188,6 +190,14 @@ class FabParser
             || str_contains($upper, 'VAT ON MEMBERSHIP')
             || str_contains($upper, 'VAT ON SERVICE')
             || str_contains($upper, 'SERVICE CHARGES');
+    }
+
+    /**
+     * Card payment credits (INST* reference codes) are imported as transfers from the debit account.
+     */
+    private function isCardPayment(string $desc): bool
+    {
+        return 1 === preg_match('/\bINST[A-Z0-9]+\b/i', $desc);
     }
 
     private function cleanName(string $name): string
