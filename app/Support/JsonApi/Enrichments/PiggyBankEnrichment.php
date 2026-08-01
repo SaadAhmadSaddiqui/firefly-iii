@@ -290,6 +290,10 @@ class PiggyBankEnrichment implements EnrichmentInterface
 
     /**
      * Returns the suggested amount the user should save per month, or "".
+     *
+     * Compare dates at start-of-day. Using raw now() (with time) against a
+     * midnight target date under-counts months — e.g. 31 Jul 15:00 → 31 Oct
+     * 00:00 is 2.97 months → (int) 2 → AED 7,250 instead of 4,833.
      */
     private function getSuggestedMonthlyAmount(?Carbon $startDate, ?Carbon $targetDate, ?string $targetAmount, string $currentAmount): string
     {
@@ -298,8 +302,13 @@ class PiggyBankEnrichment implements EnrichmentInterface
         }
         $savePerMonth = '0';
         if (1 === bccomp($targetAmount, $currentAmount)) {
-            $now             = today(config('app.timezone'));
-            $diffInMonths    = (int) $startDate->diffInMonths($targetDate);
+            $from            = $startDate->copy()->startOfDay();
+            $to              = $targetDate->copy()->startOfDay();
+            $today           = today(config('app.timezone'))->startOfDay();
+            if ($from->lt($today)) {
+                $from = $today;
+            }
+            $diffInMonths    = (int) $from->diffInMonths($to);
             $remainingAmount = bcsub($targetAmount, $currentAmount);
 
             // more than 1 month to go and still need money to save:

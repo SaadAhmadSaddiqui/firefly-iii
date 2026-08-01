@@ -344,9 +344,12 @@ class PiggyBankRepository implements PiggyBankRepositoryInterface, UserGroupInte
         $savePerMonth  = '0';
         $currentAmount = $this->getCurrentAmount($piggyBank);
         if (null !== $piggyBank->target_date && $currentAmount < $piggyBank->target_amount) {
-            $now             = today(config('app.timezone'));
-            $startDate       = null !== $piggyBank->start_date && $piggyBank->start_date->gte($now) ? $piggyBank->start_date : $now;
-            $diffInMonths    = (int) $startDate->diffInMonths($piggyBank->target_date);
+            $now             = today(config('app.timezone'))->startOfDay();
+            $startDate       = null !== $piggyBank->start_date && $piggyBank->start_date->copy()->startOfDay()->gte($now)
+                ? $piggyBank->start_date->copy()->startOfDay()
+                : $now;
+            $targetDate      = $piggyBank->target_date->copy()->startOfDay();
+            $diffInMonths    = (int) $startDate->diffInMonths($targetDate);
             $remainingAmount = bcsub((string) $piggyBank->target_amount, $currentAmount);
 
             // more than 1 month to go and still need money to save:
