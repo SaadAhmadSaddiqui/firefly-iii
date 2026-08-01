@@ -13,6 +13,7 @@ class EnbdParser
     private array $expenseAccountCache = [];
     private array $revenueAccountCache = [];
     private array $skipped = [];
+    private ?int $debitAccountId = null;
 
     public function __construct()
     {
@@ -51,11 +52,18 @@ class EnbdParser
     {
         $type       = $txn['type'] ?? '';
         $direction  = $txn['creditDebitIndicator'] ?? '';
-        $rawAmount  = $txn['amount'] ?? 0;
-        $amount     = is_array($rawAmount) ? (float) ($rawAmount['parsedValue'] ?? $rawAmount['source'] ?? 0) : (float) $rawAmount;
         $currency   = $txn['currencyCode'] ?? 'AED';
-        $dateMs     = $txn['date'] ?? $txn['transactionDate'] ?? null;
+        $dateMs     = $this->resolveTransactionDateMs($txn);
         $externalId = $txn['id'] ?? null;
+        $txnType    = $txn['type'] ?? '';
+        $isCreditCardExport = 'creditcard' === ($txn['product']['type'] ?? '');
+
+        // Prefer accountAmount (what hits the card/ledger). Keep raw amount for FX foreign_amount.
+        $rawAmount       = $this->parseNumeric($txn['amount'] ?? 0);
+        $accountCurrency = $txn['accountAmount']['currencyCode'] ?? $currency;
+        $amount          = array_key_exists('amount', $txn['accountAmount'] ?? [])
+            ? $this->parseNumeric($txn['accountAmount']['amount'], $rawAmount)
+            : $rawAmount;
 
         $status = strtoupper($txn['status'] ?? '');
         if (in_array($status, ['FAILED', 'CANCELLED', 'REVERSED', 'REFUNDED', 'DROPPED'], true)) {
@@ -73,11 +81,18 @@ class EnbdParser
             return null;
         }
 
-        $txnType = $txn['type'] ?? '';
-        if ('PAYMENT' === $txnType && 'CR' === $direction && (null === $dateMs || $dateMs < 86400000)) {
+        if ('PAYMENT' === $txnType && 'CR' === $direction && $this->hasEpochPrimaryDate($txn)) {
+            if ($isCreditCardExport) {
+                if (0.0 === $amount || null === $dateMs || $dateMs < 86400000) {
+                    return null;
+                }
+
+                return $this->mapCreditCardBillPayment($txn, $sourceAccountId, $dateMs, $amount, $accountCurrency, $externalId);
+            }
+
             $skipDate = $dateMs ? date('Y-m-d', (int) ($dateMs / 1000)) : '?';
             $this->skipped[] = [
-                'reason'        => 'CC payment already imported as transfer',
+                'reason'        => 'CC payment mirror entry (imported via debit CARD_PAYMENT)',
                 'description'   => $this->getEnTitle($txn) ?: 'CC Payment',
                 'date'          => $skipDate,
                 'amount'        => (string) $amount,
@@ -102,13 +117,17 @@ class EnbdParser
         $narrations  = $txn['purpose']['narrations'] ?? [];
         $refNumber   = $txn['referenceNumber'] ?? $txn['bookingReference'] ?? '';
 
+        // ENBD sometimes nests amount/exchangeRate as {source, parsedValue} objects.
+        // Casting those arrays to float yields 1 — which turned the AED 14,500 rent
+        // cheque into "Cheque Clearing — AED 1.00".
         $foreignAmount   = null;
         $foreignCurrency = null;
-        if (($txn['exchangeRate'] ?? 1.0) != 1.0 || $currency !== ($txn['accountAmount']['currencyCode'] ?? $currency)) {
-            $foreignAmount   = (string) $amount;
+        $exchangeRate    = $this->parseNumeric($txn['exchangeRate'] ?? 1.0, 1.0);
+
+        if (1.0 !== $exchangeRate || $currency !== $accountCurrency) {
+            $foreignAmount   = (string) $rawAmount;
             $foreignCurrency = $currency;
-            $amount          = (float) ($txn['accountAmount']['amount'] ?? $amount);
-            $currency        = $txn['accountAmount']['currencyCode'] ?? 'AED';
+            $currency        = $accountCurrency;
         }
 
         if (null === $foreignAmount) {
@@ -167,7 +186,7 @@ class EnbdParser
 
             return match ($type) {
                 'SALARY'            => $this->mapSalary($result, $txn, $enSubtitle),
-                'REVERSAL'          => $this->mapReversal($result, $txn, $enTitle, $terminal),
+                'REVERSAL'          => $this->mapReversal($result, $txn, $enTitle, $enSubtitle, $terminal),
                 'ECOMMERCE'         => $this->mapRefund($result, $txn, $enTitle, $terminal),
                 'DEPOSIT'           => $this->mapCashDeposit($result, $txn, $enSubtitle),
                 'OTHER'             => $this->mapOtherCredit($result, $txn, $enSubtitle, $narrations),
@@ -326,9 +345,9 @@ class EnbdParser
         return $result;
     }
 
-    private function mapReversal(array $result, array $txn, string $title, ?string $terminal): array
+    private function mapReversal(array $result, array $txn, string $title, string $subtitle, ?string $terminal): array
     {
-        $merchant               = $this->cleanMerchantName($terminal ?: $title);
+        $merchant               = $this->extractRefundMerchant($title, $subtitle, $terminal, $txn);
         $result['description']  = sprintf('Refund — %s', $merchant);
         $result['source_name']  = $merchant;
         $result['tags'][]       = 'refund';
@@ -385,7 +404,104 @@ class EnbdParser
         return $result;
     }
 
+    private function mapCreditCardBillPayment(
+        array $txn,
+        int $creditCardAccountId,
+        int $dateMs,
+        float $amount,
+        string $currency,
+        ?string $externalId,
+    ): array {
+        $carbonDate = Carbon::createFromTimestampMs($dateMs)->setTimezone('Asia/Dubai')->startOfDay();
+        $cardName   = Account::find($creditCardAccountId)?->name ?? 'Credit Card';
+        $narrations = $txn['purpose']['narrations'] ?? [];
+        $refNumber  = $txn['referenceNumber'] ?? $txn['bookingReference'] ?? '';
+
+        return [
+            'type'                 => 'transfer',
+            'date'                 => $carbonDate,
+            'amount'               => (string) $amount,
+            'currency_code'        => $currency,
+            'description'          => sprintf('Credit Card Payment — %s', $cardName),
+            'source_id'            => $this->resolveDebitAccountId(),
+            'source_name'          => null,
+            'destination_id'       => $creditCardAccountId,
+            'destination_name'     => null,
+            'tags'                 => ['credit-card-payment'],
+            'notes'                => $this->buildNotes($txn, $narrations, $refNumber),
+            'external_id'          => $externalId,
+            'internal_reference'   => $refNumber,
+            'original_id'          => $externalId,
+        ];
+    }
+
+    private function resolveTransactionDateMs(array $txn): ?int
+    {
+        foreach (['date', 'transactionDate', 'valueDate', 'initiationTime', 'executionTime'] as $field) {
+            $value = $txn[$field] ?? null;
+            if (null !== $value && (int) $value >= 86400000) {
+                return (int) $value;
+            }
+        }
+
+        return null;
+    }
+
+    private function hasEpochPrimaryDate(array $txn): bool
+    {
+        $primaryDate = $txn['date'] ?? $txn['transactionDate'] ?? null;
+
+        return null === $primaryDate || (int) $primaryDate < 86400000;
+    }
+
+    private function resolveDebitAccountId(): int
+    {
+        if (null !== $this->debitAccountId) {
+            return $this->debitAccountId;
+        }
+
+        $assetType = AccountType::where('type', 'Asset account')->first();
+        if ($assetType) {
+            $account = Account::where('account_type_id', $assetType->id)
+                ->where('name', 'Emirates NBD')
+                ->whereNull('deleted_at')
+                ->first();
+            if ($account) {
+                $this->debitAccountId = (int) $account->id;
+
+                return $this->debitAccountId;
+            }
+        }
+
+        $this->debitAccountId = 1;
+
+        return $this->debitAccountId;
+    }
+
     // ─── Helpers ───
+
+    private function parseNumeric(mixed $value, float $default = 0.0): float
+    {
+        if (is_array($value)) {
+            if (isset($value['parsedValue']) && is_numeric($value['parsedValue'])) {
+                return (float) $value['parsedValue'];
+            }
+            if (isset($value['source']) && is_numeric($value['source'])) {
+                return (float) $value['source'];
+            }
+            if (isset($value['amount'])) {
+                return $this->parseNumeric($value['amount'], $default);
+            }
+
+            return $default;
+        }
+
+        if (is_numeric($value)) {
+            return (float) $value;
+        }
+
+        return $default;
+    }
 
     private function getEnTitle(array $txn): string
     {
@@ -407,6 +523,51 @@ class EnbdParser
         }
 
         return '';
+    }
+
+    private function extractRefundMerchant(string $title, string $subtitle, ?string $terminal, array $txn): string
+    {
+        if (null !== $terminal && '' !== trim($terminal)) {
+            return $this->cleanMerchantName($terminal);
+        }
+
+        foreach ([$subtitle, trim($txn['mlEnriched']['cleanDescription'] ?? '')] as $candidate) {
+            $merchant = $this->merchantFromReversalSubtitle($candidate);
+            if (null !== $merchant) {
+                return $merchant;
+            }
+        }
+
+        $genericTitles = ['retail return', 'reversal', 'refund', 'return'];
+        if (!in_array(mb_strtolower(trim($title)), $genericTitles, true)) {
+            return $this->cleanMerchantName($title);
+        }
+
+        return $this->cleanMerchantName('' !== $subtitle ? $subtitle : $title);
+    }
+
+    private function merchantFromReversalSubtitle(string $subtitle): ?string
+    {
+        $subtitle = trim($subtitle);
+        if ('' === $subtitle) {
+            return null;
+        }
+
+        if (preg_match('/^(retail return|reversal|e-commerce|ecommerce)$/i', $subtitle)) {
+            return null;
+        }
+
+        if (preg_match('/((?:www\.)?[\w.-]+\.com)/i', $subtitle, $match)) {
+            return $this->cleanMerchantName($match[1]);
+        }
+
+        $stripped = preg_replace('/(Dubai|Abu Dhabi|Sharjah|DUBAI|DXB|ARE|UAE|784).*$/i', '', $subtitle) ?? $subtitle;
+        $stripped = trim($stripped);
+        if ('' !== $stripped && !preg_match('/^(retail return|reversal)$/i', $stripped)) {
+            return $this->cleanMerchantName($stripped);
+        }
+
+        return null;
     }
 
     private function cleanMerchantName(string $name): string
