@@ -7,14 +7,15 @@ namespace FireflyIII\Http\Controllers\BankImport;
 use Carbon\Carbon;
 use FireflyIII\Factory\TransactionGroupFactory;
 use FireflyIII\Http\Controllers\Controller;
-use FireflyIII\Models\Bill;
-use FireflyIII\Models\Budget;
-use FireflyIII\Models\Category;
 use FireflyIII\Models\TransactionGroup;
+use FireflyIII\Models\TransactionJournal;
+use FireflyIII\Models\TransactionJournalMeta;
 use FireflyIII\Repositories\RuleGroup\RuleGroupRepositoryInterface;
 use FireflyIII\Services\BankImport\EnbdParser;
 use FireflyIII\Services\BankImport\FabParser;
 use FireflyIII\Services\BankImport\MashreqParser;
+use FireflyIII\Services\Internal\Update\GroupUpdateService;
+use FireflyIII\Support\Facades\Steam;
 use FireflyIII\TransactionRules\Engine\RuleEngineInterface;
 use FireflyIII\User;
 use Illuminate\Contracts\View\Factory;
@@ -285,7 +286,7 @@ class ImportController extends Controller
         /** @var User $user */
         $user = auth()->user();
 
-        $stats = ['created' => 0, 'duplicates' => 0, 'failed' => 0, 'errors' => [], 'dry_run' => $dryRun, 'details' => []];
+        $stats = ['created' => 0, 'updated' => 0, 'duplicates' => 0, 'failed' => 0, 'errors' => [], 'dry_run' => $dryRun, 'details' => []];
 
         if ($dryRun) {
             DB::beginTransaction();
@@ -322,6 +323,26 @@ class ImportController extends Controller
                 ];
 
                 try {
+                    // Auth→settle: same external_id may return with a new billed amount.
+                    // Update the existing journal instead of keeping the first (auth) amount
+                    // or creating a second copy under a different import hash.
+                    $existingJournal = $this->findJournalByExternalId($mapped['external_id'] ?? null);
+                    if (null !== $existingJournal) {
+                        $updateResult = $this->refreshExistingJournalAmount($existingJournal, $mapped);
+                        if ('updated' === $updateResult['status']) {
+                            ++$stats['updated'];
+                            $detail['status']  = 'updated';
+                            $detail['message'] = $updateResult['message'];
+                        } else {
+                            ++$stats['duplicates'];
+                            $detail['status']  = 'duplicate';
+                            $detail['message'] = 'Duplicate transaction already exists';
+                        }
+                        $stats['details'][] = $detail;
+
+                        continue;
+                    }
+
                     $groupData = [
                         'user'                    => $user,
                         'user_group'              => $user->userGroup,
@@ -337,7 +358,7 @@ class ImportController extends Controller
 
                     $this->applyRulesSync($group, $user);
 
-                    /** @var \FireflyIII\Models\TransactionJournal|null $journal */
+                    /** @var null|TransactionJournal $journal */
                     $journal = $group->transactionJournals()->first();
                     if (null !== $journal) {
                         $journal->refresh();
@@ -358,11 +379,11 @@ class ImportController extends Controller
                     $msg = $e->getMessage();
                     if (str_contains(strtolower($msg), 'duplicate')) {
                         ++$stats['duplicates'];
-                        $detail['status'] = 'duplicate';
+                        $detail['status']  = 'duplicate';
                         $detail['message'] = 'Duplicate transaction already exists';
                     } else {
                         ++$stats['failed'];
-                        $detail['status'] = 'failed';
+                        $detail['status']  = 'failed';
                         $detail['message'] = $msg;
                         $stats['errors'][] = sprintf('%s: %s', mb_substr($mapped['description'], 0, 40), $msg);
                         Log::error(sprintf('BankImport failed: %s — %s', $mapped['description'], $msg));
@@ -378,5 +399,81 @@ class ImportController extends Controller
         }
 
         return response()->json($stats);
+    }
+
+    private function findJournalByExternalId(null|string $externalId): ?TransactionJournal
+    {
+        if (null === $externalId || '' === $externalId) {
+            return null;
+        }
+
+        $meta = TransactionJournalMeta::where('name', 'external_id')
+            ->where('hash', hash('sha256', json_encode($externalId, JSON_THROW_ON_ERROR)))
+            ->whereNull('deleted_at')
+            ->first()
+        ;
+
+        if (null === $meta) {
+            return null;
+        }
+
+        /** @var null|TransactionJournal $journal */
+        $journal = TransactionJournal::where('id', $meta->transaction_journal_id)
+            ->whereNull('deleted_at')
+            ->first()
+        ;
+
+        return $journal;
+    }
+
+    /**
+     * When a bank export revisits an already-imported external_id (e.g. AUTHORIZED → SETTLED
+     * with a final FX amount), overwrite Firefly's amount with the bank's current amount.
+     *
+     * @return array{status: string, message: string}
+     */
+    private function refreshExistingJournalAmount(TransactionJournal $journal, array $mapped): array
+    {
+        $newAmount = Steam::positive((string) ($mapped['amount'] ?? '0'));
+        $anyTxn    = $journal->transactions()->whereNull('deleted_at')->first();
+        if (null === $anyTxn) {
+            return ['status' => 'duplicate', 'message' => 'Duplicate transaction already exists'];
+        }
+
+        $oldAmount = Steam::positive((string) $anyTxn->amount);
+        if (0 === bccomp($oldAmount, $newAmount, 12)) {
+            return ['status' => 'duplicate', 'message' => 'Duplicate transaction already exists'];
+        }
+
+        $group = $journal->transactionGroup;
+        if (null === $group) {
+            return ['status' => 'duplicate', 'message' => 'Duplicate transaction already exists'];
+        }
+
+        $update = [
+            'transaction_journal_id' => $journal->id,
+            'amount'                 => $newAmount,
+        ];
+        if (isset($mapped['foreign_amount'], $mapped['foreign_currency_code'])) {
+            $update['foreign_amount']        = (string) $mapped['foreign_amount'];
+            $update['foreign_currency_code'] = (string) $mapped['foreign_currency_code'];
+        }
+
+        /** @var GroupUpdateService $updateService */
+        $updateService = app(GroupUpdateService::class);
+        $updateService->update($group, ['transactions' => [$update]]);
+
+        Log::info(sprintf(
+            'BankImport updated amount for external_id %s: %s → %s (%s)',
+            (string) ($mapped['external_id'] ?? '?'),
+            $oldAmount,
+            $newAmount,
+            (string) ($mapped['description'] ?? '')
+        ));
+
+        return [
+            'status'  => 'updated',
+            'message' => sprintf('Updated amount %s → %s (settled/re-import)', $oldAmount, $newAmount),
+        ];
     }
 }

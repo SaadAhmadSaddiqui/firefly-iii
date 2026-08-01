@@ -314,6 +314,7 @@
 
         summary.innerHTML =
             '<dt>Would be created</dt><dd><strong class="text-success">' + data.created + '</strong></dd>' +
+            '<dt>Would update amount</dt><dd><strong class="text-info">' + (data.updated || 0) + '</strong></dd>' +
             '<dt>Duplicates</dt><dd><strong class="text-warning">' + data.duplicates + '</strong></dd>' +
             '<dt>Would fail</dt><dd>' + (data.failed > 0 ? '<strong class="text-danger">' + data.failed + '</strong>' : '0') + '</dd>';
 
@@ -326,6 +327,10 @@
                 statusLabel = 'Would be created';
                 statusClass = 'success';
                 tr.className = 'dry-run-created';
+            } else if (d.status === 'updated') {
+                statusLabel = 'Would update amount';
+                statusClass = 'info';
+                tr.className = 'dry-run-updated';
             } else if (d.status === 'duplicate') {
                 statusLabel = 'Duplicate';
                 statusClass = 'warning';
@@ -361,6 +366,7 @@
         var body = document.getElementById('results-body');
         var h = '<dl class="dl-horizontal">' +
             '<dt>Created</dt><dd><strong class="text-success">' + data.created + '</strong></dd>' +
+            '<dt>Amounts updated</dt><dd><strong class="text-info">' + (data.updated || 0) + '</strong></dd>' +
             '<dt>Duplicates skipped</dt><dd>' + data.duplicates + '</dd>' +
             '<dt>Failed</dt><dd>' + (data.failed > 0 ? '<strong class="text-danger">' + data.failed + '</strong>' : '0') + '</dd>' +
             '</dl>';
