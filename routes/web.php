@@ -1474,3 +1474,26 @@ Route::group(
         //        Route::post('set-order/{bill}', ['uses' => 'Bill\IndexController@setOrder', 'as' => 'set-order']);
     }
 );
+
+// ---------------------------------------------------------------------------
+// Fork additions: backup & restore (+ Google Drive), bank import, budget plans.
+// ---------------------------------------------------------------------------
+
+// Backup & restore, Google Drive sync.
+Route::group(
+    ['middleware' => 'user-full-auth', 'namespace' => 'FireflyIII\Http\Controllers', 'prefix' => 'backup', 'as' => 'backup.'],
+    static function (): void {
+        Route::get('', ['uses' => 'Backup\IndexController@index', 'as' => 'index']);
+        Route::post('backup', ['uses' => 'Backup\IndexController@backup', 'as' => 'backup']);
+        Route::post('restore', ['uses' => 'Backup\IndexController@restore', 'as' => 'restore']);
+        Route::get('google-drive/connect', ['uses' => 'Backup\GoogleDriveController@connect', 'as' => 'gdrive.connect']);
+        Route::get('google-drive/callback', ['uses' => 'Backup\GoogleDriveController@callback', 'as' => 'gdrive.callback']);
+        Route::post('google-drive/disconnect', ['uses' => 'Backup\GoogleDriveController@disconnect', 'as' => 'gdrive.disconnect']);
+        Route::post('google-drive/backup', ['uses' => 'Backup\GoogleDriveController@backup', 'as' => 'gdrive.backup']);
+        Route::get('google-drive/files', ['uses' => 'Backup\GoogleDriveController@files', 'as' => 'gdrive.files']);
+        Route::post('google-drive/restore', ['uses' => 'Backup\GoogleDriveController@restore', 'as' => 'gdrive.restore']);
+        Route::post('google-drive/delete-remote', ['uses' => 'Backup\GoogleDriveController@deleteRemote', 'as' => 'gdrive.delete']);
+        Route::post('google-drive/push-plans', ['uses' => 'Backup\GoogleDriveController@pushPlans', 'as' => 'gdrive.push-plans']);
+        Route::post('google-drive/pull-plans', ['uses' => 'Backup\GoogleDriveController@pullPlans', 'as' => 'gdrive.pull-plans']);
+    }
+);

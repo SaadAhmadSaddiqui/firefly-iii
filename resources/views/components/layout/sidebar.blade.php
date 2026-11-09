@@ -203,6 +203,15 @@
     </li>
 
 
+    {{-- fork: planning and data tools --}}
+    <li class="nav-header text-uppercase">{{ __('firefly.fork_menu_planning') }}</li>
+    <li class="nav-item">
+        <a href="{{ route('backup.index') }}" class="nav-link {{ menu_item_active_partial('backup.') }}">
+            <em class="nav-icon bi bi-database"></em>
+            <p>{{ __('firefly.backup_menu') }}</p>
+        </a>
+    </li>
+
     <li class="nav-header text-uppercase">{{ __('firefly.others') }}</li>
     <li class="nav-item">
         <a href="{{ route('currencies.index') }}" class="nav-link {{ menu_item_active_partial('currencies.') }}">

@@ -83,6 +83,7 @@
         "bacon/bacon-qr-code": "^3.0",
         "diglactic/laravel-breadcrumbs": "^10",
         "gdbots/query-parser": "^3.0",
+        "google/apiclient": "^2.19",
         "guzzlehttp/guzzle": "^7.11",
         "jc5/google2fa-laravel": "dev-main  ",
         "jc5/recovery": "^2",
@@ -193,6 +194,9 @@
         "coverage": [
             "@php vendor/bin/phpunit -c phpunit.xml"
         ],
+        "backup": "@php artisan firefly:backup",
+        "backup:remote": "@php artisan firefly:backup-remote",
+        "backup:list": "@php -r \"foreach (glob('storage/backups/*.tar.gz') ?: [] as $f) { printf('%-55s %8.1f KB  %s' . PHP_EOL, basename($f), filesize($f) / 1024, date('Y-m-d H:i', filemtime($f))); }\"",
         "serve": "@php artisan serve --port=80 --host=127.0.0.1",
         "serve:lan": "@php artisan serve --port=80 --host=0.0.0.0",
         "serve:start": "powershell -NoProfile -Command \"Start-Process -FilePath php -ArgumentList 'artisan','serve','--port=80','--host=127.0.0.1' -WorkingDirectory (Get-Location) -WindowStyle Hidden; Write-Host 'Firefly III server started in background (port 80, this computer only). Use composer serve:stop to stop it.'\"",

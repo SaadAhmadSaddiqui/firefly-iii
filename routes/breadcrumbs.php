@@ -1381,3 +1381,14 @@ Breadcrumbs::for(
         $breadcrumbs->push(trans('firefly.edit_administration_breadcrumb', ['title' => limitStringLength($userGroup->title)]), route('administrations.edit', [$userGroup->id]));
     }
 );
+
+// ---------------------------------------------------------------------------
+// Fork additions
+// ---------------------------------------------------------------------------
+Breadcrumbs::for(
+    'backup.index',
+    static function (Generator $breadcrumbs): void {
+        $breadcrumbs->parent('home');
+        $breadcrumbs->push(trans('firefly.backup_bc'), route('backup.index'));
+    }
+);
