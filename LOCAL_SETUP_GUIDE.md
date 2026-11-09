@@ -194,6 +194,22 @@ Then open [http://localhost:8080](http://localhost:8080) in your browser.
 
 > This is fine for personal/local use. The built-in server handles one request at a time, which is perfectly acceptable for a single-user budgeting app.
 
+The Composer scripts wrap this: `composer serve` / `composer serve:start` (background) / `composer serve:stop`, on port 80, **bound to `127.0.0.1`**. `composer serve:lan` binds `0.0.0.0` (whole network). Use it only deliberately.
+
+### Reaching it from your phone / laptop (Tailscale)
+
+Keep Firefly on `127.0.0.1` and let Tailscale publish it to your tailnet only, over HTTPS:
+
+```bash
+tailscale serve --bg http://127.0.0.1:80     # → https://<machine>.<tailnet>.ts.net (tailnet only)
+tailscale serve status
+tailscale serve --https=443 off              # stop publishing
+```
+
+- Set `TRUSTED_PROXIES=**` in `.env`, so Firefly builds `https://` links behind Tailscale. It's safe because the app only listens on localhost.
+- Use `tailscale serve`, **not** `tailscale funnel` (Funnel puts it on the public internet).
+- PostgreSQL stays on `listen_addresses = 'localhost'` (in `C:\Program Files\PostgreSQL\17\data\postgresql.conf`). Devices never need the database directly.
+
 ### Option B: Nginx + PHP-FPM (better performance)
 
 If you want a more robust setup (e.g., via WSL or Laragon):
