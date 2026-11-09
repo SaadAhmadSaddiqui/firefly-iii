@@ -48,8 +48,8 @@ class IndexController extends Controller
         $localPlanCount = 0;
         $plansDir       = storage_path('budget-plans');
         if (is_dir($plansDir)) {
-            $mdFiles        = glob($plansDir . '/*.md');
-            $localPlanCount = false !== $mdFiles ? count($mdFiles) : 0;
+            $mdFiles        = array_merge(glob($plansDir . '/*.md') ?: [], glob($plansDir . '/*/*.md') ?: []);
+            $localPlanCount = count($mdFiles);
         }
 
         return view('backup.index', compact(

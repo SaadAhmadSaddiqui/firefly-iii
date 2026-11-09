@@ -37,7 +37,7 @@ Assign exactly one budget to every withdrawal in the period. In order:
 4. Gather what you cannot resolve into a short numbered **question list**. Ask once, with date, amount, card and merchant for each.
 
 Tag one-offs (`one-off`, plus a trip or event tag like `canada-trip-2026`) so they can be separated from everyday spending later.
-Write proposals to `storage/budget-plans/<PERIOD>_IMPORT_REVIEW.md`. Apply them only after the user answers. Apply in one DB transaction: dry run first, then real.
+Write proposals to `storage/budget-plans/reviews/YYYY-MM_<PERIOD>_IMPORT_REVIEW.md`. Apply them only after the user answers. Apply in one DB transaction: dry run first, then real.
 **Done when:** a query shows 0 withdrawals in the period without a budget and 0 with more than one, and the review file reflects what was applied.
 
 ### 4. Gather plan inputs
@@ -48,7 +48,7 @@ Use [prompt-template.md](prompt-template.md) as the questionnaire. Skip anything
 ### 5. Write the plan
 
 Pull data with `php artisan firefly:spending-report --from=YYYY-MM-DD --to=YYYY-MM-DD`. Use 3 months by default, and include actuals by Firefly budget.
-Save to `storage/budget-plans/<MONTH>_BUDGET_<YEAR>.md`. Match the structure and depth of the most recent plan in that folder: an honest review of last month (plan vs actual), financial snapshot, allocation table with reasoning, cash-flow calendar, buffer analysis, biggest levers, and a Firefly changes checklist.
+Save to `storage/budget-plans/monthly/YYYY-MM_<MONTH>_BUDGET.md` (e.g. `2026-12_DECEMBER_BUDGET.md`). Other folders: `reviews/` (reflections, mid-month and import reviews), `goals/` (savings plans, prefixed with the target month), `drafts/`. The `YYYY-MM_` prefix keeps every folder in month order, and the Budget Plans page and Google Drive sync both read these folders. Match the structure and depth of the most recent plan in `monthly/`: an honest review of last month (plan vs actual), financial snapshot, allocation table with reasoning, **one table of every category adding up to the full salary**, cash-flow calendar, buffer analysis, **what you save this month**, biggest levers, and a Firefly changes checklist.
 **Done when:** every line in the allocation table has a figure and a reason, and income minus obligations minus allocations reconciles to the stated buffer.
 
 ### 6. Apply Firefly changes

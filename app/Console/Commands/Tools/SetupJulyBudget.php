@@ -15,7 +15,7 @@ use FireflyIII\User;
 use Illuminate\Console\Command;
 
 /**
- * Apply July 2026 budget limits from storage/budget-plans/JULY_BUDGET_2026.md
+ * Apply July 2026 budget limits from storage/budget-plans/monthly/2026-07_JULY_BUDGET.md
  */
 class SetupJulyBudget extends Command
 {

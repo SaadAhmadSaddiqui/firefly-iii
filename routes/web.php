@@ -1483,7 +1483,7 @@ Route::group(
         Route::get('', ['uses' => 'BudgetPlanController@index', 'as' => 'index']);
         Route::get('create', ['uses' => 'BudgetPlanController@create', 'as' => 'create']);
         Route::post('generate', ['uses' => 'BudgetPlanController@generate', 'as' => 'generate']);
-        Route::get('{filename}', ['uses' => 'BudgetPlanController@show', 'as' => 'show'])->where('filename', '[A-Za-z0-9_\-]+\.md');
+        Route::get('{path}', ['uses' => 'BudgetPlanController@show', 'as' => 'show'])->where('path', '([a-z]+/)?[A-Za-z0-9_\-]+\.md');
     }
 );
 

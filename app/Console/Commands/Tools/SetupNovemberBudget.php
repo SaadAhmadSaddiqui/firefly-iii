@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * November 2026: budget limits (Nov 1–9 actual + Nov 10–30 plan), subscription
  * clean-up after the Aug–Nov import, and the car loan as an expected bill.
- * See storage/budget-plans/NOVEMBER_BUDGET_2026.md.
+ * See storage/budget-plans/monthly/2026-11_NOVEMBER_BUDGET.md.
  */
 class SetupNovemberBudget extends Command
 {

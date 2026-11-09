@@ -67,13 +67,13 @@ Active subscriptions from last month that have CHANGED:
 
 Analyze my last 3 months of transactions using the spending report command,
 categorize all spending by merchant, and create a detailed budget plan
-document (save to storage/budget-plans/).
+document (save to storage/budget-plans/monthly/YYYY-MM_MONTH_BUDGET.md).
 
 Include a Firefly III changes section at the end listing what budgets,
 subscriptions, rules, recurring transactions, or piggy banks to
 add, update, or remove — as a checklist. Apply it once I approve.
 
-Match the format and depth of the most recent plan in storage/budget-plans/.
+Match the format and depth of the most recent plan in storage/budget-plans/monthly/.
 ```
 
 ---

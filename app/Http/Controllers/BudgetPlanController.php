@@ -34,6 +34,14 @@ class BudgetPlanController extends Controller
 
     private const int EMIRATES_NBD_ACCOUNT_ID = 1;
 
+    /** Sub-folders of storage/budget-plans, in display order. Files are named YYYY-MM_TITLE.md. */
+    private const array CATEGORIES = [
+        'monthly' => 'Monthly Budget Plans',
+        'reviews' => 'Reviews & Reflections',
+        'goals'   => 'Savings Goals',
+        'drafts'  => 'Drafts & Tests',
+    ];
+
     public function __construct()
     {
         parent::__construct();
@@ -48,30 +56,14 @@ class BudgetPlanController extends Controller
 
     public function index(): Factory|\Illuminate\Contracts\View\View
     {
-        $directory = storage_path('budget-plans');
-        $plans     = [];
-
-        if (is_dir($directory)) {
-            $files = glob($directory . '/*.md');
-            if (false !== $files) {
-                foreach ($files as $file) {
-                    $filename = basename($file);
-                    $name     = str_replace(['_', '.md'], [' ', ''], $filename);
-                    $modified = filemtime($file);
-
-                    $plans[] = [
-                        'filename' => $filename,
-                        'name'     => $name,
-                        'size'     => filesize($file),
-                        'modified' => false !== $modified ? date('F j, Y', $modified) : 'Unknown',
-                    ];
-                }
-            }
+        $groups = [];
+        foreach ($this->planFiles() as $plan) {
+            $groups[$plan['category']] ??= ['title' => self::CATEGORIES[$plan['category']] ?? 'Other', 'plans' => []];
+            $groups[$plan['category']]['plans'][] = $plan;
         }
+        $plans = array_merge(...array_column($groups, 'plans') ?: [[]]);
 
-        usort($plans, static fn (array $a, array $b): int => strcmp($b['filename'], $a['filename']));
-
-        return view('budget-plans.index', compact('plans'));
+        return view('budget-plans.index', compact('groups', 'plans'));
     }
 
     public function create(): Factory|\Illuminate\Contracts\View\View
@@ -247,7 +239,7 @@ class BudgetPlanController extends Controller
             $markdown = $gemini->generate($prompts['system'], $prompts['user']);
 
             $filename = $this->generateFilename($budgetMonth, $budgetYear);
-            $dir      = storage_path('budget-plans');
+            $dir      = storage_path('budget-plans/monthly');
 
             if (!is_dir($dir)) {
                 mkdir($dir, 0755, true);
@@ -257,7 +249,7 @@ class BudgetPlanController extends Controller
 
             session()->flash('success', 'Budget plan generated successfully!');
 
-            return redirect()->route('budget-plans.show', ['filename' => $filename]);
+            return redirect()->route('budget-plans.show', ['path' => 'monthly/' . $filename]);
         } catch (\RuntimeException $e) {
             session()->flash('error', 'Failed to generate budget plan: ' . $e->getMessage());
 
@@ -266,27 +258,20 @@ class BudgetPlanController extends Controller
         }
     }
 
-    public function show(string $filename): Factory|\Illuminate\Contracts\View\View
+    public function show(string $path): Factory|\Illuminate\Contracts\View\View
     {
-        $filename = basename($filename);
-
-        if (!str_ends_with($filename, '.md')) {
+        $full = $this->resolvePlanPath($path);
+        if (null === $full) {
             throw new NotFoundHttpException();
         }
 
-        $path = storage_path('budget-plans/' . $filename);
-
-        if (!file_exists($path)) {
-            throw new NotFoundHttpException();
-        }
-
-        $content = file_get_contents($path);
+        $content = file_get_contents($full);
         if (false === $content) {
             throw new NotFoundHttpException();
         }
 
-        $name     = str_replace(['_', '.md'], [' ', ''], $filename);
-        $subTitle = $name;
+        $filename = basename($full);
+        $subTitle = $this->describe($filename)['name'];
 
         return view('budget-plans.show', compact('content', 'subTitle', 'filename'));
     }
@@ -324,47 +309,30 @@ class BudgetPlanController extends Controller
         return $result;
     }
 
+    /** @return array<string, string> relative path => label, newest first (for the "reference plans" picker) */
     private function listBudgetPlans(): array
     {
-        $directory = storage_path('budget-plans');
-        $plans     = [];
-
-        if (is_dir($directory)) {
-            $files = glob($directory . '/*.md');
-            if (false !== $files) {
-                foreach ($files as $file) {
-                    $filename = basename($file);
-                    $label    = str_replace(['_', '.md'], [' ', ''], $filename);
-                    $plans[$filename] = $label;
-                }
-            }
+        $files = $this->planFiles();
+        usort($files, static fn (array $a, array $b): int => strcmp($b['filename'], $a['filename']));
+        $plans = [];
+        foreach ($files as $plan) {
+            $plans[$plan['path']] = trim($plan['period'] . ' ' . $plan['name']);
         }
-
-        arsort($plans);
 
         return $plans;
     }
 
-    private function loadSelectedPlans(array $filenames): array
+    private function loadSelectedPlans(array $paths): array
     {
         $plans = [];
-        $dir   = storage_path('budget-plans');
-
-        foreach ($filenames as $filename) {
-            $filename = basename($filename);
-            $path     = $dir . '/' . $filename;
-
-            if (!file_exists($path) || !str_ends_with($filename, '.md')) {
+        foreach ($paths as $path) {
+            $full = $this->resolvePlanPath((string) $path);
+            if (null === $full) {
                 continue;
             }
-
-            $content = file_get_contents($path);
+            $content = file_get_contents($full);
             if (false !== $content) {
-                $label   = str_replace(['_', '.md'], [' ', ''], $filename);
-                $plans[] = [
-                    'name'    => $label,
-                    'content' => $content,
-                ];
+                $plans[] = ['name' => $this->describe(basename($full))['name'], 'content' => $content];
             }
         }
 
@@ -373,17 +341,75 @@ class BudgetPlanController extends Controller
 
     private function generateFilename(int $month, int $year): string
     {
-        $monthName = strtoupper(Carbon::create($year, $month, 1)->format('F'));
-        $base      = sprintf('%s_BUDGET_%d', $monthName, $year);
-        $filename  = $base . '.md';
-        $dir       = storage_path('budget-plans');
-        $counter   = 1;
+        $date     = Carbon::create($year, $month, 1);
+        $base     = sprintf('%s_%s_BUDGET', $date->format('Y-m'), strtoupper($date->format('F')));
+        $filename = $base . '.md';
+        $dir      = storage_path('budget-plans/monthly');
+        $counter  = 1;
 
         while (file_exists($dir . '/' . $filename)) {
-            $counter++;
+            ++$counter;
             $filename = sprintf('%s_%d.md', $base, $counter);
         }
 
         return $filename;
+    }
+
+    /**
+     * Every plan file: the category folders first (in CATEGORIES order), then any loose files in the root.
+     * Within a category, files sort by name, which is chronological thanks to the YYYY-MM prefix.
+     *
+     * @return array<int, array{path: string, category: string, filename: string, name: string, period: string, size: int, modified: string}>
+     */
+    private function planFiles(): array
+    {
+        $root  = storage_path('budget-plans');
+        $plans = [];
+        foreach ([...array_keys(self::CATEGORIES), ''] as $category) {
+            $files = glob(rtrim($root . '/' . $category, '/') . '/*.md') ?: [];
+            sort($files);
+            foreach ($files as $file) {
+                $filename = basename($file);
+                $modified = filemtime($file);
+                $plans[]  = [
+                    'path'     => ('' === $category ? '' : $category . '/') . $filename,
+                    'category' => '' === $category ? 'other' : $category,
+                    'filename' => $filename,
+                    'size'     => (int) filesize($file),
+                    'modified' => false !== $modified ? date('F j, Y', $modified) : 'Unknown',
+                ] + $this->describe($filename);
+            }
+        }
+
+        return $plans;
+    }
+
+    /** "2026-03_MARCH_BUDGET.md" → name "March Budget", period "Mar 2026". */
+    private function describe(string $filename): array
+    {
+        $stem = str_replace('.md', '', $filename);
+        if (1 === preg_match('/^(\d{4})-(\d{2})_(.+)$/', $stem, $m)) {
+            return [
+                'name'   => ucwords(strtolower(str_replace('_', ' ', $m[3]))),
+                'period' => Carbon::create((int) $m[1], (int) $m[2], 1)->format('M Y'),
+            ];
+        }
+
+        return ['name' => str_replace('_', ' ', $stem), 'period' => ''];
+    }
+
+    /** Map "monthly/2026-03_MARCH_BUDGET.md" (or a loose root file) to a real file inside storage/budget-plans. */
+    private function resolvePlanPath(string $path): ?string
+    {
+        if (1 !== preg_match('#^(?:([a-z]+)/)?([A-Za-z0-9_\-]+\.md)$#', $path, $m)) {
+            return null;
+        }
+        $category = $m[1];
+        if ('' !== $category && !array_key_exists($category, self::CATEGORIES)) {
+            return null;
+        }
+        $full = storage_path('budget-plans/' . ('' === $category ? '' : $category . '/') . $m[2]);
+
+        return is_file($full) ? $full : null;
     }
 }

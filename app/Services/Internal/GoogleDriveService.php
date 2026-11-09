@@ -200,12 +200,14 @@ class GoogleDriveService
     }
 
     /**
+     * Mirror storage/budget-plans (including its category sub-folders such as monthly/ and reviews/) to Drive.
+     *
      * @return array{uploaded: int, files: list<string>}
      */
     public function pushBudgetPlans(): array
     {
         $service   = new GoogleDrive($this->getClient());
-        $folderId  = $this->resolveFolder($service, (string) config('google-drive.budget_plans_folder'));
+        $base      = (string) config('google-drive.budget_plans_folder');
         $localDir  = storage_path('budget-plans');
         $uploaded  = 0;
         $fileNames = [];
@@ -214,45 +216,50 @@ class GoogleDriveService
             return ['uploaded' => 0, 'files' => []];
         }
 
-        $localFiles = glob($localDir . '/*.md');
-        if (false === $localFiles) {
-            return ['uploaded' => 0, 'files' => []];
-        }
-
-        $existingRemote = $this->listFilesInFolder($service, $folderId);
-
-        foreach ($localFiles as $localFile) {
-            $name    = basename($localFile);
-            $content = file_get_contents($localFile);
-            if (false === $content) {
+        $subDirs = array_map('basename', glob($localDir . '/*', GLOB_ONLYDIR) ?: []);
+        foreach (['', ...$subDirs] as $sub) {
+            $localFiles = glob(rtrim($localDir . '/' . $sub, '/') . '/*.md') ?: [];
+            if ([] === $localFiles) {
                 continue;
             }
+            $folderId       = $this->resolveFolder($service, rtrim($base . '/' . $sub, '/'));
+            $existingRemote = $this->listFilesInFolder($service, $folderId);
 
-            if (isset($existingRemote[$name])) {
-                $service->files->update($existingRemote[$name], new DriveFile(), [
-                    'data'       => $content,
-                    'mimeType'   => 'text/markdown',
-                    'uploadType' => 'multipart',
-                ]);
-            } else {
-                $service->files->create(new DriveFile([
-                    'name'    => $name,
-                    'parents' => [$folderId],
-                ]), [
-                    'data'       => $content,
-                    'mimeType'   => 'text/markdown',
-                    'uploadType' => 'multipart',
-                ]);
+            foreach ($localFiles as $localFile) {
+                $name    = basename($localFile);
+                $content = file_get_contents($localFile);
+                if (false === $content) {
+                    continue;
+                }
+
+                if (isset($existingRemote[$name])) {
+                    $service->files->update($existingRemote[$name], new DriveFile(), [
+                        'data'       => $content,
+                        'mimeType'   => 'text/markdown',
+                        'uploadType' => 'multipart',
+                    ]);
+                } else {
+                    $service->files->create(new DriveFile([
+                        'name'    => $name,
+                        'parents' => [$folderId],
+                    ]), [
+                        'data'       => $content,
+                        'mimeType'   => 'text/markdown',
+                        'uploadType' => 'multipart',
+                    ]);
+                }
+
+                $fileNames[] = ltrim($sub . '/' . $name, '/');
+                ++$uploaded;
             }
-
-            $fileNames[] = $name;
-            ++$uploaded;
         }
 
         return ['uploaded' => $uploaded, 'files' => $fileNames];
     }
 
     /**
+     * Pull budget plans back from Drive, recreating the category sub-folders locally.
+     *
      * @return array{downloaded: int, files: list<string>}
      */
     public function pullBudgetPlans(): array
@@ -267,30 +274,40 @@ class GoogleDriveService
             return ['downloaded' => 0, 'files' => []];
         }
 
-        if (!is_dir($localDir) && !mkdir($localDir, 0755, true)) {
-            throw new \RuntimeException('Could not create budget plans directory: ' . $localDir);
-        }
-
-        $query   = sprintf("'%s' in parents and trashed = false", $folderId);
+        // Root folder first, then each lowercase category sub-folder (monthly, reviews, goals, drafts, ...).
+        $folders = ['' => $folderId];
         $results = $service->files->listFiles([
-            'q'      => $query,
+            'q'      => sprintf("'%s' in parents and mimeType = '%s' and trashed = false", $folderId, self::FOLDER_MIME),
             'fields' => 'files(id, name)',
         ]);
+        foreach ($results->getFiles() as $folder) {
+            if (1 === preg_match('/^[a-z]+$/', (string) $folder->getName())) {
+                $folders[$folder->getName()] = $folder->getId();
+            }
+        }
 
-        foreach ($results->getFiles() as $file) {
-            $name = $file->getName();
-            if (!str_ends_with($name, '.md')) {
-                continue;
+        foreach ($folders as $sub => $remoteId) {
+            $targetDir = rtrim($localDir . DIRECTORY_SEPARATOR . $sub, DIRECTORY_SEPARATOR);
+            if (!is_dir($targetDir) && !mkdir($targetDir, 0755, true)) {
+                throw new \RuntimeException('Could not create budget plans directory: ' . $targetDir);
             }
 
-            $response = $service->files->get($file->getId(), ['alt' => 'media']);
-            $content  = $response->getBody()->getContents();
+            $files = $service->files->listFiles([
+                'q'      => sprintf("'%s' in parents and trashed = false", $remoteId),
+                'fields' => 'files(id, name)',
+            ]);
+            foreach ($files->getFiles() as $file) {
+                $name = $file->getName();
+                if (!str_ends_with($name, '.md')) {
+                    continue;
+                }
 
-            $destPath = $localDir . DIRECTORY_SEPARATOR . basename($name);
-            file_put_contents($destPath, $content);
+                $response = $service->files->get($file->getId(), ['alt' => 'media']);
+                file_put_contents($targetDir . DIRECTORY_SEPARATOR . basename($name), $response->getBody()->getContents());
 
-            $fileNames[] = $name;
-            ++$downloaded;
+                $fileNames[] = ltrim($sub . '/' . $name, '/');
+                ++$downloaded;
+            }
         }
 
         return ['downloaded' => $downloaded, 'files' => $fileNames];
