@@ -1,0 +1,37 @@
+/* Budget Plans pages (fork). Bootstrap 5 variables so light and dark mode both work. */
+
+/* Rendered plan */
+.budget-plan-content h1 { font-size: 1.8em; margin-top: 0; border-bottom: 2px solid var(--bs-primary); padding-bottom: 8px; }
+.budget-plan-content h2 { font-size: 1.5em; margin-top: 25px; color: var(--bs-primary); border-bottom: 1px solid var(--bs-border-color); padding-bottom: 6px; }
+.budget-plan-content h3 { font-size: 1.25em; margin-top: 20px; }
+.budget-plan-content h4 { font-size: 1.1em; margin-top: 15px; }
+.budget-plan-content table { width: 100%; margin-bottom: 15px; border-collapse: collapse; display: block; overflow-x: auto; }
+.budget-plan-content table th,
+.budget-plan-content table td { padding: 6px 10px; border: 1px solid var(--bs-border-color); }
+.budget-plan-content table th { background-color: var(--bs-tertiary-bg); font-weight: 600; }
+.budget-plan-content table tr:nth-child(even) { background-color: rgba(var(--bs-secondary-rgb), 0.05); }
+.budget-plan-content hr { border: none; border-top: 1px solid var(--bs-border-color); margin: 20px 0; }
+.budget-plan-content blockquote { border-left: 4px solid var(--bs-primary); margin: 15px 0; padding: 10px 20px; background: var(--bs-tertiary-bg); }
+.budget-plan-content code { background: var(--bs-tertiary-bg); padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+.budget-plan-content pre { background: var(--bs-tertiary-bg); padding: 15px; border-radius: var(--bs-border-radius); overflow-x: auto; }
+.budget-plan-content pre code { background: none; padding: 0; }
+.budget-plan-content ul, .budget-plan-content ol { padding-left: 25px; }
+.budget-plan-content li { margin-bottom: 4px; }
+
+/* Planner form */
+.dynamic-row { display: flex; gap: 10px; margin-bottom: 8px; align-items: center; }
+.dynamic-row input, .dynamic-row select { flex: 1; }
+.dynamic-row .btn-remove { flex: 0 0 auto; }
+.obligation-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+.obligation-row label { flex: 1; margin-bottom: 0; }
+.obligation-row .obligation-amount { flex: 0 0 110px; text-align: right; color: var(--bs-secondary-color); }
+.obligation-row select { flex: 0 0 170px; }
+#generating-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
+    z-index: 9999; justify-content: center; align-items: center;
+}
+#generating-overlay.active { display: flex; }
+.generating-card {
+    background: var(--bs-body-bg); border-radius: var(--bs-border-radius-lg); padding: 40px 50px;
+    text-align: center; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}

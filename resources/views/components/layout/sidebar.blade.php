@@ -205,6 +205,12 @@
 
     {{-- fork: planning and data tools --}}
     <li class="nav-header text-uppercase">{{ __('firefly.fork_menu_planning') }}</li>
+    <li class="nav-item">
+        <a href="{{ route('budget-plans.index') }}" class="nav-link {{ menu_item_active_partial('budget-plans.') }}">
+            <em class="nav-icon bi bi-journal-text"></em>
+            <p>Budget plans</p>
+        </a>
+    </li>
     <li class="nav-item {{ menu_open_partial('bank-import.') }}">
         <a href="#" class="nav-link">
             <em class="nav-icon bi bi-bank"></em>
