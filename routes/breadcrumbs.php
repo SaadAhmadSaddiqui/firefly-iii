@@ -1381,3 +1381,50 @@ Breadcrumbs::for(
         $breadcrumbs->push(trans('firefly.edit_administration_breadcrumb', ['title' => limitStringLength($userGroup->title)]), route('administrations.edit', [$userGroup->id]));
     }
 );
+
+// ---------------------------------------------------------------------------
+// Fork additions
+// ---------------------------------------------------------------------------
+Breadcrumbs::for(
+    'backup.index',
+    static function (Generator $breadcrumbs): void {
+        $breadcrumbs->parent('home');
+        $breadcrumbs->push(trans('firefly.backup_bc'), route('backup.index'));
+    }
+);
+foreach (['enbd' => 'Emirates NBD / Islamic', 'mashreq' => 'Mashreq', 'fab' => 'FAB'] as $bankKey => $bankTitle) {
+    Breadcrumbs::for(
+        'bank-import.'.$bankKey,
+        static function (Generator $breadcrumbs) use ($bankKey, $bankTitle): void {
+            $breadcrumbs->parent('home');
+            $breadcrumbs->push('Bank import');
+            $breadcrumbs->push($bankTitle, route('bank-import.'.$bankKey));
+        }
+    );
+}
+Breadcrumbs::for(
+    'budget-plans.index',
+    static function (Generator $breadcrumbs): void {
+        $breadcrumbs->parent('home');
+        $breadcrumbs->push('Budget plans', route('budget-plans.index'));
+    }
+);
+Breadcrumbs::for(
+    'budget-plans.create',
+    static function (Generator $breadcrumbs): void {
+        $breadcrumbs->parent('budget-plans.index');
+        $breadcrumbs->push('New budget plan', route('budget-plans.create'));
+    }
+);
+Breadcrumbs::for(
+    'budget-plans.show',
+    static function (Generator $breadcrumbs, string $path): void {
+        $breadcrumbs->parent('budget-plans.index');
+        // "monthly/2026-12_DECEMBER_BUDGET.md" -> "December Budget (Dec 2026)"
+        $stem  = basename($path, '.md');
+        $title = 1 === preg_match('/^(\d{4})-(\d{2})_(.+)$/', $stem, $m)
+            ? sprintf('%s (%s)', ucwords(strtolower(str_replace('_', ' ', $m[3]))), date('M Y', mktime(0, 0, 0, (int) $m[2], 1, (int) $m[1])))
+            : str_replace('_', ' ', $stem);
+        $breadcrumbs->push($title, route('budget-plans.show', $path));
+    }
+);

@@ -1,0 +1,103 @@
+# Monthly Budget Plan — Prompt Template
+
+Copy the prompt below, fill in the blanks, and send it to the AI. The skill file handles the rest.
+
+---
+
+## The Prompt
+
+```
+Create my monthly budget plan for [MONTH YEAR].
+
+## My Financial Situation
+
+- **Current bank balance (Emirates NBD):** AED [AMOUNT]
+  (This is my total balance RIGHT NOW — salary was received ~27th of last month and is already
+  included. The next salary arriving ~27th-28th of this month is for NEXT month, not this one.)
+- **Cash on hand:** AED [AMOUNT or "none"]
+- **Credit card balances:**
+  - EI RTA CC: AED [AMOUNT or "0"]
+  - Mashreq CC: AED [AMOUNT or "0"]
+  - FAB CC: AED [AMOUNT or "0"]
+- **Budget period:** [MONTH] 1-30/31 (calendar month; salary already received)
+
+## Already Paid Today
+
+List any payments that already went through today (deduct from balance):
+- [e.g., Spotify AED 41.24 from Emirates NBD]
+- [e.g., Noon AED 45.08 from EI card — transferred to clear]
+- [or "Nothing paid yet today"]
+
+## Large Upcoming Obligations This Period
+
+- [e.g., Quarterly rent AED 14,500 due in March]
+- [e.g., Car insurance AED 3,000 due next week]
+- [or "None beyond the usual"]
+
+## Fixed Monthly Obligations (confirm or update)
+
+- Dad transfer: AED 5,000 (mandatory) — [YES still active / NO stopped]
+- Rent Fund piggy: AED ~4,833 toward the next quarterly AED 14,500 — [on track / behind by AED ___]
+- Car loan installment: AED [exact amount] (from Dec 2026)
+- Referral commission (Mohammad Dohadwala): AED ~300 — [due this month / not this month]
+- Donations (Droplets of Mercy): AED ~280 — [CAN pause this month / CANNOT pause]
+- GymNation (2 people): AED ~394 — [Still active / Cancelled]
+
+## Subscription Changes
+
+Active subscriptions from last month that have CHANGED:
+- [e.g., "Cancelled Netflix"]
+- [e.g., "Paused Audible"]
+- [e.g., "New subscription: Claude Pro AED 75/month"]
+- [or "No changes — same as last month"]
+
+## Goals or Constraints This Month
+
+- [e.g., "Save AED 2,000 for emergency fund"]
+- [e.g., "Wife's birthday — need AED 500 for gift"]
+- [e.g., "Tight month, cut everything possible"]
+- [e.g., "Normal month, reasonable budget"]
+
+## Special Notes
+
+- [Anything else: expected one-off expenses, income changes, etc.]
+- [or "Nothing special"]
+
+---
+
+Analyze my last 3 months of transactions using the spending report command,
+categorize all spending by merchant, and create a detailed budget plan
+document (save to storage/budget-plans/monthly/YYYY-MM_MONTH_BUDGET.md).
+
+Include a Firefly III changes section at the end listing what budgets,
+subscriptions, rules, recurring transactions, or piggy banks to
+add, update, or remove — as a checklist. Apply it once I approve.
+
+Match the format and depth of the most recent plan in storage/budget-plans/monthly/.
+```
+
+---
+
+## What Happens Next
+
+The AI will:
+
+1. Check when transactions were last imported, ask for bank exports if there's a gap, and import them
+2. Run `php artisan firefly:spending-report --months=3` to pull transaction data
+3. Categorize every merchant into spending categories
+4. Generate a detailed `.md` budget document with:
+   - Financial snapshot
+   - Full category breakdown with per-merchant tables and reasoning
+   - Budget allocation table with % cuts from average
+   - ASCII spending chart
+   - Category-by-category reasoning
+   - Buffer analysis and further-cut levers
+   - Firefly III changes checklist (what to add/update/remove)
+
+## Tips
+
+- **Be honest about cash on hand** — it's your safety net, not spending money
+- **Salary timing** — salary arrives ~27th of the previous month. Your bank balance already includes it. The next salary (~27th-28th this month) is for next month, not this one. No additional income to expect.
+- **List ALL subscription changes** — paused, cancelled, new ones. The AI checks against last month's data but your confirmation prevents errors.
+- **Mention any unusual expenses coming** — car repair, medical procedure, travel. These need to be carved out of the budget.
+- **"Tight month" vs "normal month"** matters — tight months freeze shopping and activities entirely. Normal months give modest allowances.

@@ -28,6 +28,7 @@ use FireflyIII\Helpers\Attachments\AttachmentHelperInterface;
 use FireflyIII\Http\Controllers\Controller;
 use FireflyIII\Http\Requests\PiggyBankUpdateRequest;
 use FireflyIII\Models\PiggyBank;
+use FireflyIII\Repositories\Budget\BudgetRepositoryInterface;
 use FireflyIII\Repositories\PiggyBank\PiggyBankRepositoryInterface;
 use FireflyIII\Support\Facades\Preferences;
 use FireflyIII\Support\Facades\Steam;
@@ -85,6 +86,7 @@ final class EditController extends Controller
             'accounts'                => [],
             'object_group'            => null !== $piggyBank->objectGroups->first() ? $piggyBank->objectGroups->first()->title : '',
             'notes'                   => null === $note ? '' : $note->text,
+            'budget_id'               => (int) $piggyBank->budget_id,
         ];
         foreach ($piggyBank->accounts as $account) {
             $preFilled['accounts'][] = $account->id;
@@ -105,6 +107,7 @@ final class EditController extends Controller
             'subTitleIcon' => $subTitleIcon,
             'piggyBank'    => $piggyBank,
             'preFilled'    => $preFilled,
+            'budgets'      => app('expandedform')->makeSelectListWithEmpty(app(BudgetRepositoryInterface::class)->getActiveBudgets()),
         ]);
     }
 

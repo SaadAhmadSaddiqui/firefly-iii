@@ -91,7 +91,7 @@ return [
         ],
     ],
 
-    'from'     => ['address' => env_default_when_empty(env('MAIL_FROM'), 'changeme@example.com'), 'name' => 'Firefly III Mailer'],
+    'from'     => ['address' => env_default_when_empty(env('MAIL_FROM'), 'changeme@example.com'), 'name' => env_default_when_empty(env('MAIL_FROM_NAME'), 'Firefly III Mailer')],
     'markdown' => [
         'theme' => 'default',
 

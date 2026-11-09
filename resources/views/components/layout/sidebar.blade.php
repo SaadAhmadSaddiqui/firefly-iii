@@ -203,6 +203,50 @@
     </li>
 
 
+    {{-- fork: planning and data tools --}}
+    <li class="nav-header text-uppercase">{{ __('firefly.fork_menu_planning') }}</li>
+    <li class="nav-item">
+        <a href="{{ route('budget-plans.index') }}" class="nav-link {{ menu_item_active_partial('budget-plans.') }}">
+            <em class="nav-icon bi bi-journal-text"></em>
+            <p>Budget plans</p>
+        </a>
+    </li>
+    <li class="nav-item {{ menu_open_partial('bank-import.') }}">
+        <a href="#" class="nav-link">
+            <em class="nav-icon bi bi-bank"></em>
+            <p>
+                Bank import
+                <em class="nav-arrow bi bi-chevron-right"></em>
+            </p>
+        </a>
+        <ul class="nav nav-treeview">
+            <li class="nav-item sub-nav-item">
+                <a href="{{ route('bank-import.enbd') }}" class="nav-link {{ menu_item_active_partial('bank-import.enbd') }}">
+                    <em class="nav-icon bi bi-dot"></em>
+                    <p>Emirates NBD / Islamic</p>
+                </a>
+            </li>
+            <li class="nav-item sub-nav-item">
+                <a href="{{ route('bank-import.mashreq') }}" class="nav-link {{ menu_item_active_partial('bank-import.mashreq') }}">
+                    <em class="nav-icon bi bi-dot"></em>
+                    <p>Mashreq</p>
+                </a>
+            </li>
+            <li class="nav-item sub-nav-item">
+                <a href="{{ route('bank-import.fab') }}" class="nav-link {{ menu_item_active_partial('bank-import.fab') }}">
+                    <em class="nav-icon bi bi-dot"></em>
+                    <p>FAB</p>
+                </a>
+            </li>
+        </ul>
+    </li>
+    <li class="nav-item">
+        <a href="{{ route('backup.index') }}" class="nav-link {{ menu_item_active_partial('backup.') }}">
+            <em class="nav-icon bi bi-database"></em>
+            <p>{{ __('firefly.backup_menu') }}</p>
+        </a>
+    </li>
+
     <li class="nav-header text-uppercase">{{ __('firefly.others') }}</li>
     <li class="nav-item">
         <a href="{{ route('currencies.index') }}" class="nav-link {{ menu_item_active_partial('currencies.') }}">

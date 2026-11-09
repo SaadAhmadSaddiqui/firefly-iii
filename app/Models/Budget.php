@@ -42,7 +42,7 @@ class Budget extends Model
     use ReturnsIntegerUserIdTrait;
     use SoftDeletes;
 
-    protected $fillable = ['user_id', 'user_group_id', 'name', 'active', 'order', 'user_group_id'];
+    protected $fillable = ['user_id', 'user_group_id', 'name', 'active', 'include_in_charts', 'order', 'user_group_id'];
 
     protected $hidden   = ['encrypted'];
 
@@ -89,6 +89,12 @@ class Budget extends Model
         return $this->hasMany(BudgetLimit::class);
     }
 
+    /** Fork: piggy banks whose contributions count as spending in this budget. */
+    public function piggyBanks(): HasMany
+    {
+        return $this->hasMany(PiggyBank::class);
+    }
+
     /**
      * Get all of the notes.
      */
@@ -123,7 +129,8 @@ class Budget extends Model
             'created_at'    => 'datetime',
             'updated_at'    => 'datetime',
             'deleted_at'    => 'datetime',
-            'active'        => 'boolean',
+            'active'            => 'boolean',
+            'include_in_charts' => 'boolean', // fork: leave one-off budgets out of the transaction charts
             'encrypted'     => 'boolean',
             'user_id'       => 'integer',
             'user_group_id' => 'integer',

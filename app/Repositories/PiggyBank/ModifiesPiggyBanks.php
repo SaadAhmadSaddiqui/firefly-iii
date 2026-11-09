@@ -366,6 +366,9 @@ trait ModifiesPiggyBanks
 
     private function updateProperties(PiggyBank $piggyBank, array $data): PiggyBank
     {
+        if (array_key_exists('budget_id', $data)) { // fork: piggy bank ↔ budget link
+            $piggyBank->budget_id = $data['budget_id'];
+        }
         if (array_key_exists('name', $data) && '' !== $data['name']) {
             event(new PiggyBankNameIsChanged($piggyBank, $piggyBank->name, $data['name']));
             $piggyBank->name = $data['name'];

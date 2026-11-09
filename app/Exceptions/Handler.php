@@ -228,13 +228,29 @@ class Handler extends ExceptionHandler
     {
         self::$lastError = $e;
         $doMailError     = (bool) config('firefly.send_error_message');
-        if ($this->shouldntReportLocal($e) || !$doMailError) {
+        // Fork: no error mail outside an HTTP request (artisan commands, bootstrap), and never
+        // while already mailing an error (a failing MailError must not recurse into itself).
+        static $isReporting = false;
+        $outsideRequest  = app()->runningInConsole() || !app()->bound('request');
+        if ($this->shouldntReportLocal($e) || !$doMailError || $outsideRequest || $isReporting) {
             parent::report($e);
 
             return;
         }
+        $isReporting     = true;
+        try {
+            $this->mailError($e);
+        } finally {
+            $isReporting = false;
+        }
+
+        parent::report($e);
+    }
+
+    private function mailError(Throwable $e): void
+    {
         $userData        = ['id' => 0, 'email' => 'unknown@example.com'];
-        if (auth()->check()) {
+        if (app()->bound('auth') && auth()->check()) {
             $userData['id']    = auth()->user()->id;
             $userData['email'] = auth()->user()->email;
         }
@@ -278,8 +294,6 @@ class Handler extends ExceptionHandler
         $ipAddress       = request()->ip() ?? '0.0.0.0';
         $job             = new MailError($userData, (string) config('firefly.site_owner'), $ipAddress, $data);
         dispatch($job);
-
-        parent::report($e);
     }
 
     /**

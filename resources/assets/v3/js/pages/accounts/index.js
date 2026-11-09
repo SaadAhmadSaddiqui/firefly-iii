@@ -25,6 +25,7 @@ import Alpine from "@alpinejs/csp";
 import { getVariable } from "../../store/get-variable.js";
 import Put from "../../api/model/account/put.js";
 import Get from "../../api/model/account/get.js";
+import PiggyBankGet from "../../api/model/piggy-bank/get.js";
 import formatDate from "../../util/format-date.js";
 import formatMoney from "../../util/format-money.js";
 import i18next from "i18next";
@@ -56,6 +57,10 @@ let index = function () {
         sums: {},
         debts: {},
         differences: {},
+        // fork: money set aside in piggy banks, per asset account id, and the resulting available sums.
+        reserved: null,
+        availableSums: {},
+        summaryRows: [],
 
         // functions
         formatMoney: formatMoney,
@@ -173,7 +178,7 @@ let index = function () {
             let start = window.store.get("start");
             let end = window.store.get("end");
             this.convertToPrimary = window.store.get("convert_to_primary");
-            new Get()
+            const accountList = new Get()
                 .list({
                     active: this.active,
                     sort: sort,
@@ -182,13 +187,15 @@ let index = function () {
                     start: start,
                     filter: JSON.parse(JSON.stringify(this.filter)),
                     end: end,
-                })
-                .then((response) => {
+                });
+            Promise.all([accountList, this.loadReserved()])
+                .then(([response]) => {
                     const locale = window.store.get("locale");
                     this.accounts = [];
                     this.sums = {};
                     this.debts = {};
                     this.differences = {};
+                    this.availableSums = {};
 
                     this.totalPages = parseInt(response.data.meta.pagination.total_pages);
                     for (let i = 0; i < response.data.data.length; i++) {
@@ -270,9 +277,13 @@ let index = function () {
                                     .t("firefly.interest_calc_" + current.attributes.interest_period)
                                     .toLowerCase(),
                             };
+                            if ("asset" === this.objectType) {
+                                this.addAvailable(account, current.attributes, cc);
+                            }
                             this.accounts.push(account);
                         }
                     }
+                    this.buildSummaryRows();
                     // console.log(
                     //     "Done downloading accounts.",
                     //     JSON.parse(JSON.stringify(this.filter)),
@@ -287,6 +298,125 @@ let index = function () {
                         });
                     }
                 });
+        },
+        // fork: load the money set aside in piggy banks once, as a list of piggy banks per account id.
+        loadReserved() {
+            if ("asset" !== this.objectType || null !== this.reserved) {
+                return Promise.resolve();
+            }
+            this.reserved = {};
+            const getter = new PiggyBankGet();
+            const loadPage = (page) =>
+                getter.list({ page: page, limit: 100 }).then((response) => {
+                    for (const piggyBank of response.data.data) {
+                        for (const row of piggyBank.attributes.accounts ?? []) {
+                            const amount = parseFloat(row.current_amount ?? "0");
+                            if (0 === amount) {
+                                continue;
+                            }
+                            const id = parseInt(row.account_id);
+                            this.reserved[id] = this.reserved[id] ?? [];
+                            this.reserved[id].push({
+                                id: parseInt(piggyBank.id),
+                                name: piggyBank.attributes.name,
+                                amount: amount,
+                            });
+                        }
+                    }
+                    if (page < parseInt(response.data.meta.pagination.total_pages)) {
+                        return loadPage(page + 1);
+                    }
+                });
+            return loadPage(1).catch(() => {
+                this.reserved = {};
+            });
+        },
+        // fork: available = balance minus piggy bank money; also collects the per-currency footer sums.
+        addAvailable(account, attributes, code) {
+            const round = (value) => Math.round(value * 100) / 100;
+            const piggies = this.anonymous ? [] : (this.reserved[account.id] ?? []);
+            const balance = attributes.current_balance_float;
+            const difference = attributes.balance_difference_float;
+            const reserved = round(piggies.reduce((sum, piggy) => sum + piggy.amount, 0));
+            const available = round(balance - reserved);
+            account.piggies = piggies.map((piggy) => ({
+                id: piggy.id,
+                name: piggy.name,
+                amount: formatMoney(-piggy.amount, code),
+            }));
+            account.available_float = available;
+            account.available = formatMoney(available, code);
+
+            const sum = (this.availableSums[code] = this.availableSums[code] ?? {
+                code: code,
+                name: attributes.currency_name ?? code,
+                balance_positive: 0,
+                balance_negative: 0,
+                balance_total: 0,
+                diff_positive: 0,
+                diff_negative: 0,
+                diff_total: 0,
+                piggy_total: 0,
+                available_total: 0,
+            });
+            sum.balance_total = round(sum.balance_total + balance);
+            sum.diff_total = round(sum.diff_total + difference);
+            sum.piggy_total = round(sum.piggy_total + reserved);
+            sum.available_total = round(sum.available_total + available);
+            if (balance > 0) {
+                sum.balance_positive = round(sum.balance_positive + balance);
+            }
+            if (balance < 0) {
+                sum.balance_negative = round(sum.balance_negative + balance);
+            }
+            if (difference > 0) {
+                sum.diff_positive = round(sum.diff_positive + difference);
+            }
+            if (difference < 0) {
+                sum.diff_negative = round(sum.diff_negative + difference);
+            }
+        },
+        // fork: footer rows like the old list: sum of positives, sum of negatives, total (per currency).
+        buildSummaryRows() {
+            const moneyClass = (value) => (value > 0 ? "money-positive" : value < 0 ? "money-negative" : "money-neutral");
+            const cell = (value, code) => ({ text: formatMoney(value, code), cls: moneyClass(value) });
+            const empty = { text: "", cls: "" };
+            const rows = [];
+            for (const sum of Object.values(this.availableSums)) {
+                const label = " (" + sum.name + ")";
+                if (0 !== sum.balance_positive) {
+                    rows.push({
+                        key: sum.code + "-positive",
+                        kind: "positive",
+                        label: label,
+                        balance: cell(sum.balance_positive, sum.code),
+                        available: empty,
+                        piggy: "",
+                        diff: cell(sum.diff_positive, sum.code),
+                    });
+                }
+                if (0 !== sum.balance_negative) {
+                    rows.push({
+                        key: sum.code + "-negative",
+                        kind: "negative",
+                        label: label,
+                        balance: cell(sum.balance_negative, sum.code),
+                        available: empty,
+                        piggy: "",
+                        diff: cell(sum.diff_negative, sum.code),
+                    });
+                }
+                rows.push({
+                    key: sum.code + "-total",
+                    kind: "total",
+                    label: label,
+                    balance: cell(sum.balance_total, sum.code),
+                    available: cell(sum.available_total, sum.code),
+                    piggy: 0 !== sum.piggy_total ? formatMoney(sum.piggy_total, sum.code) : "",
+                    diff: cell(sum.diff_total, sum.code),
+                });
+            }
+            this.summaryRows = rows;
         },
         addSpaces(iban) {
             if (null === iban) {

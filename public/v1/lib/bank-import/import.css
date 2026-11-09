@@ -1,0 +1,39 @@
+/* Bank import pages (fork). Uses Bootstrap 5 variables so light/dark mode both work. */
+#code-editor {
+    width: 100%;
+    height: 350px;
+    font-family: var(--bs-font-monospace);
+    font-size: 13px;
+    white-space: pre;
+    resize: vertical;
+}
+.schema-pre {
+    background: var(--bs-tertiary-bg);
+    border-radius: var(--bs-border-radius);
+    padding: 12px 15px;
+    font-size: 12px;
+    line-height: 1.5;
+    max-height: 400px;
+    overflow: auto;
+    margin: 0;
+}
+
+/* Preview table: scroll sideways rather than squash */
+#preview-table { min-width: 1200px; }
+#preview-table th, #preview-table td { white-space: nowrap; vertical-align: middle; }
+#preview-table td:nth-child(4) { white-space: normal; min-width: 180px; max-width: 300px; }
+#preview-table .badge, #dry-run-table .badge { margin-right: 3px; }
+#preview-table .sel-budget,
+#preview-table .sel-category,
+#preview-table .sel-bill { width: 150px; font-size: 12px; padding: 2px 4px; }
+
+/* Skipped preview rows */
+tr.preview-skipped { opacity: 0.55; }
+tr.preview-skipped td { font-style: italic; }
+.btn-delete-txn { padding: 2px 6px; line-height: 1; }
+
+/* Dry run result rows */
+tr.dry-run-created > td { background-color: rgba(var(--bs-success-rgb), 0.08); }
+tr.dry-run-updated > td { background-color: rgba(var(--bs-info-rgb), 0.08); }
+tr.dry-run-duplicate > td { background-color: rgba(var(--bs-warning-rgb), 0.08); }
+tr.dry-run-failed > td { background-color: rgba(var(--bs-danger-rgb), 0.08); }
