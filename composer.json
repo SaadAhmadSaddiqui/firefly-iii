@@ -192,7 +192,11 @@
         ],
         "coverage": [
             "@php vendor/bin/phpunit -c phpunit.xml"
-        ]
+        ],
+        "serve": "@php artisan serve --port=80 --host=127.0.0.1",
+        "serve:lan": "@php artisan serve --port=80 --host=0.0.0.0",
+        "serve:start": "powershell -NoProfile -Command \"Start-Process -FilePath php -ArgumentList 'artisan','serve','--port=80','--host=127.0.0.1' -WorkingDirectory (Get-Location) -WindowStyle Hidden; Write-Host 'Firefly III server started in background (port 80, this computer only). Use composer serve:stop to stop it.'\"",
+        "serve:stop": "powershell -NoProfile -Command \"$pids = Get-NetTCPConnection -LocalPort 80 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique; foreach ($p in $pids) { $proc = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $p); if ($proc.Name -eq 'php.exe') { Stop-Process -Id $proc.ParentProcessId -ErrorAction SilentlyContinue; Stop-Process -Id $p -ErrorAction SilentlyContinue } }; Write-Host 'Firefly III server on port 80 stopped (other PHP processes untouched).'\""
     },
     "config": {
         "preferred-install": "dist",
