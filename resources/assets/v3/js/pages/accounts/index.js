@@ -60,6 +60,7 @@ let index = function () {
         // fork: money set aside in piggy banks, per asset account id, and the resulting available sums.
         reserved: null,
         availableSums: {},
+        summaryRows: [],
 
         // functions
         formatMoney: formatMoney,
@@ -277,11 +278,12 @@ let index = function () {
                                     .toLowerCase(),
                             };
                             if ("asset" === this.objectType) {
-                                this.addAvailable(account, current.attributes.current_balance_float, cc);
+                                this.addAvailable(account, current.attributes, cc);
                             }
                             this.accounts.push(account);
                         }
                     }
+                    this.buildSummaryRows();
                     // console.log(
                     //     "Done downloading accounts.",
                     //     JSON.parse(JSON.stringify(this.filter)),
@@ -297,7 +299,7 @@ let index = function () {
                     }
                 });
         },
-        // fork: load piggy bank reservations once, summed per account id.
+        // fork: load the money set aside in piggy banks once, as a list of piggy banks per account id.
         loadReserved() {
             if ("asset" !== this.objectType || null !== this.reserved) {
                 return Promise.resolve();
@@ -308,8 +310,17 @@ let index = function () {
                 getter.list({ page: page, limit: 100 }).then((response) => {
                     for (const piggyBank of response.data.data) {
                         for (const row of piggyBank.attributes.accounts ?? []) {
+                            const amount = parseFloat(row.current_amount ?? "0");
+                            if (0 === amount) {
+                                continue;
+                            }
                             const id = parseInt(row.account_id);
-                            this.reserved[id] = (this.reserved[id] ?? 0) + parseFloat(row.current_amount ?? "0");
+                            this.reserved[id] = this.reserved[id] ?? [];
+                            this.reserved[id].push({
+                                id: parseInt(piggyBank.id),
+                                name: piggyBank.attributes.name,
+                                amount: amount,
+                            });
                         }
                     }
                     if (page < parseInt(response.data.meta.pagination.total_pages)) {
@@ -320,14 +331,92 @@ let index = function () {
                 this.reserved = {};
             });
         },
-        addAvailable(account, balance, code) {
-            const reserved = this.anonymous ? 0 : Math.round((this.reserved[account.id] ?? 0) * 100) / 100;
-            const available = this.anonymous ? 0 : Math.round((balance - reserved) * 100) / 100;
-            account.reserved_float = reserved;
-            account.reserved = formatMoney(reserved, code);
+        // fork: available = balance minus piggy bank money; also collects the per-currency footer sums.
+        addAvailable(account, attributes, code) {
+            const round = (value) => Math.round(value * 100) / 100;
+            const piggies = this.anonymous ? [] : (this.reserved[account.id] ?? []);
+            const balance = attributes.current_balance_float;
+            const difference = attributes.balance_difference_float;
+            const reserved = round(piggies.reduce((sum, piggy) => sum + piggy.amount, 0));
+            const available = round(balance - reserved);
+            account.piggies = piggies.map((piggy) => ({
+                id: piggy.id,
+                name: piggy.name,
+                amount: formatMoney(-piggy.amount, code),
+            }));
             account.available_float = available;
             account.available = formatMoney(available, code);
-            this.availableSums[code] = Math.round(((this.availableSums[code] ?? 0) + available) * 100) / 100;
+
+            const sum = (this.availableSums[code] = this.availableSums[code] ?? {
+                code: code,
+                name: attributes.currency_name ?? code,
+                balance_positive: 0,
+                balance_negative: 0,
+                balance_total: 0,
+                diff_positive: 0,
+                diff_negative: 0,
+                diff_total: 0,
+                piggy_total: 0,
+                available_total: 0,
+            });
+            sum.balance_total = round(sum.balance_total + balance);
+            sum.diff_total = round(sum.diff_total + difference);
+            sum.piggy_total = round(sum.piggy_total + reserved);
+            sum.available_total = round(sum.available_total + available);
+            if (balance > 0) {
+                sum.balance_positive = round(sum.balance_positive + balance);
+            }
+            if (balance < 0) {
+                sum.balance_negative = round(sum.balance_negative + balance);
+            }
+            if (difference > 0) {
+                sum.diff_positive = round(sum.diff_positive + difference);
+            }
+            if (difference < 0) {
+                sum.diff_negative = round(sum.diff_negative + difference);
+            }
+        },
+        // fork: footer rows like the old list: sum of positives, sum of negatives, total (per currency).
+        buildSummaryRows() {
+            const moneyClass = (value) => (value > 0 ? "money-positive" : value < 0 ? "money-negative" : "money-neutral");
+            const cell = (value, code) => ({ text: formatMoney(value, code), cls: moneyClass(value) });
+            const empty = { text: "", cls: "" };
+            const rows = [];
+            for (const sum of Object.values(this.availableSums)) {
+                const label = " (" + sum.name + ")";
+                if (0 !== sum.balance_positive) {
+                    rows.push({
+                        key: sum.code + "-positive",
+                        kind: "positive",
+                        label: label,
+                        balance: cell(sum.balance_positive, sum.code),
+                        available: empty,
+                        piggy: "",
+                        diff: cell(sum.diff_positive, sum.code),
+                    });
+                }
+                if (0 !== sum.balance_negative) {
+                    rows.push({
+                        key: sum.code + "-negative",
+                        kind: "negative",
+                        label: label,
+                        balance: cell(sum.balance_negative, sum.code),
+                        available: empty,
+                        piggy: "",
+                        diff: cell(sum.diff_negative, sum.code),
+                    });
+                }
+                rows.push({
+                    key: sum.code + "-total",
+                    kind: "total",
+                    label: label,
+                    balance: cell(sum.balance_total, sum.code),
+                    available: cell(sum.available_total, sum.code),
+                    piggy: 0 !== sum.piggy_total ? formatMoney(sum.piggy_total, sum.code) : "",
+                    diff: cell(sum.diff_total, sum.code),
+                });
+            }
+            this.summaryRows = rows;
         },
         addSpaces(iban) {
             if (null === iban) {

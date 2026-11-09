@@ -3006,6 +3006,7 @@ return [
     'fork_menu_planning'                                  => 'Planning & data',
     'fork_available_balance'                              => 'Available',
     'fork_available_balance_help'                         => 'Current balance minus the money set aside in piggy banks on this account.',
+    'fork_in_piggy_banks'                                 => 'in piggy banks',
     // backup and restore:
     'backup_title'                                        => 'Backup & Restore',
     'backup_menu'                                         => 'Backup & Restore',

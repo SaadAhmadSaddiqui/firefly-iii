@@ -51,6 +51,7 @@ RUN mkdir -p $FIREFLY_III_PATH/storage/framework/views \
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts \
     && composer audit --no-dev --locked \
     && php artisan package:discover --ansi \
+    && php artisan firefly:generate-js-translations \
     && php artisan view:clear \
     && php artisan cache:clear
 

@@ -215,8 +215,8 @@
                                         <template x-if="account.available_float < 0.0">
                                             <span class="money-negative" x-text="account.available"></span>
                                         </template>
-                                        <template x-if="account.reserved_float > 0.0">
-                                            <small class="d-block text-muted"><span class="bi bi-piggy-bank"></span> <span x-text="account.reserved"></span></small>
+                                        <template x-for="piggy in account.piggies" :key="piggy.id">
+                                            <small class="d-block text-muted"><a :href="'./piggy-banks/show/' + piggy.id" x-text="piggy.name"></a>: <span x-text="piggy.amount"></span></small>
                                         </template>
                                     </td>
                                 </template>
@@ -304,99 +304,68 @@
                         <template
                             x-if="accounts.length > 0 && ('asset' === objectType || 'liabilities' === objectType)">
                             <tfoot>
+                            {{-- liabilities: upstream's single totals row --}}
+                            <template x-if="'liabilities' === objectType">
                             <tr>
-                                <td colspan="3">&nbsp;</td>
-                                <template x-if="'asset' === objectType">
-                                    <td>&nbsp;</td>
-                                </template>
-                                <template x-if="'liabilities' === objectType">
-                                    <td colspan="3">&nbsp;</td>
-                                </template>
-                                <template x-if="'liabilities' !== objectType">
+                                <td colspan="6">&nbsp;</td>
                                 <td class="text-end">
-                                    <template x-for="(sum, code) in sums">
+                                    <template x-for="(sum, code) in debts">
                                         <span>
                                             <template x-if="sum > 0">
-                                                <span>
-                                                <span class="money-positive" x-text="formatMoney(sum, code)"></span>
-                                                    <br>
-                                                </span>
+                                                <span><span class="money-positive" x-text="formatMoney(sum, code)"></span><br></span>
                                             </template>
                                             <template x-if="sum < 0">
-                                                <span>
-                                                <span class="money-negative" x-text="formatMoney(sum, code)"></span>
-                                                    <br>
-                                                </span>
+                                                <span><span class="money-negative" x-text="formatMoney(sum, code)"></span><br></span>
                                             </template>
                                         </span>
                                     </template>
                                 </td>
-                                </template>
-                                <template x-if="'liabilities' === objectType">
-                                    <td class="text-end">
-                                        <template x-for="(sum, code) in debts">
-                                        <span>
-                                            <template x-if="sum > 0">
-                                                <span>
-                                                <span class="money-positive" x-text="formatMoney(sum, code)"></span>
-                                                    <br>
-                                                </span>
-                                            </template>
-                                            <template x-if="sum < 0">
-                                                <span>
-                                                <span class="money-negative" x-text="formatMoney(sum, code)"></span>
-                                                    <br>
-                                                </span>
-                                            </template>
-                                        </span>
-                                        </template>
-                                    </td>
-                                </template>
-                                <template x-if="'asset' === objectType">
-                                    <td class="text-end">
-                                        <template x-for="(sum, code) in availableSums">
-                                            <span>
-                                                <template x-if="sum >= 0">
-                                                    <span class="money-positive" x-text="formatMoney(sum, code)"></span>
-                                                </template>
-                                                <template x-if="sum < 0">
-                                                    <span class="money-negative" x-text="formatMoney(sum, code)"></span>
-                                                </template>
-                                                <br>
-                                            </span>
-                                        </template>
-                                    </td>
-                                </template>
-                                <td>&nbsp;</td> <!-- is active column -->
-                                <template x-if="'liabilities' !== objectType">
-                                    <td>&nbsp;</td> {{-- last activity column --}}
-                                </template>
+                                <td>&nbsp;</td> {{-- is active column --}}
                                 <td class="text-end">
                                     <template x-for="(sum, code) in differences">
                                         <span>
                                             <template x-if="sum > 0">
-                                                <span>
-                                                <span class="money-positive" x-text="formatMoney(sum, code)"></span>
-                                                    <br>
-                                                </span>
+                                                <span><span class="money-positive" x-text="formatMoney(sum, code)"></span><br></span>
                                             </template>
                                             <template x-if="sum < 0">
-                                                <span>
-                                                <span class="money-negative" x-text="formatMoney(sum, code)"></span>
-                                                    <br>
-                                                </span>
+                                                <span><span class="money-negative" x-text="formatMoney(sum, code)"></span><br></span>
                                             </template>
                                         </span>
                                     </template>
                                 </td>
-                                <template x-if="'liabilities' === objectType">
-                                    <td>&nbsp;</td>
-                                </template>
-
-                                <template x-if="'liabilities' !== objectType">
-                                    <td>&nbsp;</td>
-                                </template>
+                                <td>&nbsp;</td>
                             </tr>
+                            </template>
+                            {{-- fork: asset accounts get sum of positives / sum of negatives / total rows per currency --}}
+                            <template x-for="row in summaryRows" :key="row.key">
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td class="text-end">
+                                    <template x-if="'positive' === row.kind">
+                                        <small>{{ trans('firefly.positive_sum') }}<span x-text="row.label"></span></small>
+                                    </template>
+                                    <template x-if="'negative' === row.kind">
+                                        <small>{{ trans('firefly.negative_sum') }}<span x-text="row.label"></span></small>
+                                    </template>
+                                    <template x-if="'total' === row.kind">
+                                        <small><strong>{{ trans('firefly.total') }}<span x-text="row.label"></span></strong></small>
+                                    </template>
+                                </td>
+                                <td class="d-lg-table-cell d-none">&nbsp;</td> {{-- role column --}}
+                                <td>&nbsp;</td> {{-- account number column --}}
+                                <td class="text-end"><span :class="row.balance.cls" x-text="row.balance.text"></span></td>
+                                <td class="text-end">
+                                    <strong><span :class="row.available.cls" x-text="row.available.text"></span></strong>
+                                    <template x-if="'' !== row.piggy">
+                                        <small class="d-block text-muted"><span x-text="row.piggy"></span> {{ trans('firefly.fork_in_piggy_banks') }}</small>
+                                    </template>
+                                </td>
+                                <td class="d-md-table-cell d-none">&nbsp;</td> {{-- is active column --}}
+                                <td>&nbsp;</td> {{-- last activity column --}}
+                                <td class="text-end"><span :class="row.diff.cls" x-text="row.diff.text"></span></td>
+                                <td>&nbsp;</td>
+                            </tr>
+                            </template>
                             </tfoot>
                         </template>
                     </table>

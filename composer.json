@@ -179,11 +179,13 @@
             "@php artisan cache:clear",
             "@php artisan firefly-iii:upgrade-database",
             "@php artisan firefly-iii:laravel-passport-keys",
-            "@php artisan firefly-iii:instructions update"
+            "@php artisan firefly-iii:instructions update",
+            "@php artisan firefly:generate-js-translations"
         ],
         "post-install-cmd": [
             "@php artisan firefly-iii:instructions install",
-            "@php artisan firefly-iii:verify-security-alerts"
+            "@php artisan firefly-iii:verify-security-alerts",
+            "@php artisan firefly:generate-js-translations"
         ],
         "unit-test": [
             "@php vendor/bin/phpunit -c phpunit.xml --testsuite unit --no-coverage"
