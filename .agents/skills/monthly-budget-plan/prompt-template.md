@@ -37,8 +37,11 @@ List any payments that already went through today (deduct from balance):
 ## Fixed Monthly Obligations (confirm or update)
 
 - Dad transfer: AED 5,000 (mandatory) — [YES still active / NO stopped]
-- Donations (Droplets of Mercy + Impact Guru): AED ~384 — [CAN pause this month / CANNOT pause]
-- GymNation (2 people): AED 400 — [Still active / Cancelled]
+- Rent Fund piggy: AED ~4,833 toward the next quarterly AED 14,500 — [on track / behind by AED ___]
+- Car loan installment: AED [exact amount] (from Dec 2026)
+- Referral commission (Mohammad Dohadwala): AED ~300 — [due this month / not this month]
+- Donations (Droplets of Mercy): AED ~280 — [CAN pause this month / CANNOT pause]
+- GymNation (2 people): AED ~394 — [Still active / Cancelled]
 
 ## Subscription Changes
 
@@ -67,10 +70,10 @@ categorize all spending by merchant, and create a detailed budget plan
 document (save to storage/budget-plans/).
 
 Include a Firefly III changes section at the end listing what budgets,
-subscriptions, rules, recurring transactions, or piggy banks I should
-add, update, or remove — as a checklist I can work through myself.
+subscriptions, rules, recurring transactions, or piggy banks to
+add, update, or remove — as a checklist. Apply it once I approve.
 
-Match the format and depth of the March 2026 budget plan.
+Match the format and depth of the most recent plan in storage/budget-plans/.
 ```
 
 ---
@@ -79,9 +82,10 @@ Match the format and depth of the March 2026 budget plan.
 
 The AI will:
 
-1. Run `php artisan firefly:spending-report --months=3` to pull transaction data
-2. Categorize every merchant into spending categories
-3. Generate a detailed `.md` budget document with:
+1. Check when transactions were last imported, ask for bank exports if there's a gap, and import them
+2. Run `php artisan firefly:spending-report --months=3` to pull transaction data
+3. Categorize every merchant into spending categories
+4. Generate a detailed `.md` budget document with:
    - Financial snapshot
    - Full category breakdown with per-merchant tables and reasoning
    - Budget allocation table with % cuts from average
