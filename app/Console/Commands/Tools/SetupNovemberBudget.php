@@ -16,6 +16,7 @@ use FireflyIII\Models\RuleGroup;
 use FireflyIII\Models\RuleTrigger;
 use FireflyIII\Models\TransactionCurrency;
 use FireflyIII\Models\TransactionJournal;
+use FireflyIII\Support\Models\AvailableBudgetCalculator;
 use FireflyIII\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -129,6 +130,7 @@ class SetupNovemberBudget extends Command
             foreach (self::NOVEMBER_BUDGETS as $def) {
                 $this->applyBudget($user, $currency, Carbon::parse('2026-11-01'), Carbon::parse('2026-11-30'), $def);
             }
+            $this->recalculateAvailableBudget($user, $currency, Carbon::parse('2026-11-01'), Carbon::parse('2026-11-30'));
 
             $this->newLine();
             $this->info('--- SUBSCRIPTIONS ---');
@@ -216,6 +218,21 @@ class SetupNovemberBudget extends Command
         $limit->save();
 
         $this->line(sprintf('  %s%-34s AED %8s', $this->prefix, $def['name'], $def['amount']));
+    }
+
+    /**
+     * The limits above are saved on the model directly, which skips the event Firefly's forms fire. Without
+     * this, the month's available budget (= sum of limits, used by the dashboard's "Left to spend") stays stale.
+     */
+    private function recalculateAvailableBudget(User $user, TransactionCurrency $currency, Carbon $start, Carbon $end): void
+    {
+        $calculator = new AvailableBudgetCalculator();
+        $calculator->setUser($user);
+        $calculator->setCurrency($currency);
+        $calculator->setStart($start);
+        $calculator->setEnd($end);
+        $calculator->recalculateByRange();
+        $this->line(sprintf('  %sAvailable budget recalculated for %s', $this->prefix, $start->format('F Y')));
     }
 
     /** @param array{name: string, match: string, amount_min: string, amount_max: string, date: string, repeat_freq: string, also_desc?: string} $def */
