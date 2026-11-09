@@ -34,3 +34,19 @@ public/v2/i18n
 
 # ignore v3 build files
 resources/assets/v3/node_modules
+
+# --- fork: local data that must never be committed ---
+# database backups
+storage/backups/
+# card reconciliation working files
+storage/card-reconciliation/
+# budget plans (personal financial documents)
+storage/budget-plans/
+# bank exports
+*-transactions*.json
+*-transactions*.csv
+CardHistory_*.csv
+# ngrok
+ngrok_recovery_codes.txt
+# admin script run logs
+.agents/plans/*-log-*.txt

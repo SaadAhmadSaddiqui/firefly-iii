@@ -8,10 +8,10 @@ A step-by-step guide to running Firefly III on your local Windows machine as you
 
 | Tool | Version | Notes |
 |------|---------|-------|
-| **PHP** | >= 8.4 | Installed at `C:\tools\php85` |
+| **PHP** | >= 8.5 (keep on the latest 8.5.x) | Installed at `C:\tools\php85` via Chocolatey |
 | **Composer** | Latest | PHP dependency manager |
-| **Node.js + npm** | LTS (v20+) | For building frontend assets |
-| **PostgreSQL** | 15+ | Database server |
+| **Node.js + npm** | LTS (v24+) | For building frontend assets |
+| **PostgreSQL** | 17 (latest 17.x) | Database server. Keep `listen_addresses = 'localhost'` |
 | **Git** | Latest | Already installed if you cloned this repo |
 
 ### PHP Extensions (already configured)
@@ -106,11 +106,11 @@ DB_PASSWORD=secret_firefly_password    # <-- change this to your actual PG passw
 # App URL — must match the port you serve on
 APP_URL=http://localhost:8080
 
-# Frontend layout: v1 (classic) or v2 (new UI). Use v1 if v2 has missing/incomplete features.
-FIREFLY_III_LAYOUT=v1
+# Trust Tailscale Serve's forwarded headers (the app only listens on 127.0.0.1)
+TRUSTED_PROXIES=**
 ```
 
-**Layout (v1 vs v2):** Firefly III has two UIs. Set `FIREFLY_III_LAYOUT=v1` for the classic, feature-complete interface (Twig + jQuery). Set `FIREFLY_III_LAYOUT=v2` for the newer UI (Blade + Vite + Alpine.js). If you see placeholder text, empty charts, or missing data on v2, switch to v1 by setting `FIREFLY_III_LAYOUT=v1` in `.env`, then run `php artisan config:clear` and reload the app.
+**Layout:** since v6.7.1 Firefly III has a single interface (Blade + Vite, AdminLTE 4, Bootstrap Icons) built from `resources/assets/v3`. The old `FIREFLY_III_LAYOUT=v1/v2` switch no longer exists.
 
 > **Important:** Update `DB_PASSWORD` in `.env` to match the password you set when creating the PostgreSQL user in Step 1.
 
@@ -138,21 +138,22 @@ php artisan firefly-iii:laravel-passport-keys
 
 ## Step 6 — Build Frontend Assets
 
-Firefly III has two frontend versions. **V2 is the current/default UI** (Vite + Alpine.js).
+Firefly III has one frontend, `resources/assets/v3` (Vite).
 
 ```bash
-# Install all npm dependencies (from the project root)
-npm install
+# Install exactly what the lockfile pins, with install scripts disabled
+# (this year's npm worms spread through install scripts)
+npm ci --ignore-scripts
 
-# Build the v2 frontend
-npm run build --workspace=resources/assets/v2
+# Check package signatures / provenance, then known vulnerabilities
+npm audit signatures
+npm audit
+
+# Build the frontend into public/build
+npm run build --workspace=resources/assets/v3
 ```
 
-If you also want the legacy v1 frontend:
-
-```bash
-npm run production --workspace=resources/assets/v1
-```
+Avoid `npm install`, which can pull newer, unvetted versions, and `npm audit fix --force`, which makes major-version jumps.
 
 ---
 
@@ -267,7 +268,7 @@ If you use [Laragon](https://laragon.org/), you can serve Firefly III from a sym
 
 3. **Open the site** in your browser: **http://firefly-iii.test** (or the hostname Laragon shows for that folder).
 
-4. **PHP version:** Firefly III expects PHP 8.4+. If Laragon is on PHP 8.3, switch Laragon to PHP 8.4+ (Laragon → **Menu → PHP → Version**) if available, or use another way to run the app (e.g. `php artisan serve` with your `C:\tools\php85` PHP).
+4. **PHP version:** Firefly III expects PHP 8.5+. If Laragon is on an older PHP, switch Laragon to PHP 8.5+ (Laragon → **Menu → PHP → Version**) if available, or use another way to run the app (e.g. `php artisan serve` with your `C:\tools\php85` PHP).
 
 ---
 
@@ -386,7 +387,7 @@ composer install --no-dev --prefer-dist
 
 # Update frontend
 npm install
-npm run build --workspace=resources/assets/v2
+npm run build --workspace=resources/assets/v3
 
 # Run database upgrades
 php artisan firefly-iii:upgrade-database
@@ -496,7 +497,7 @@ php artisan view:clear
 Rebuild assets:
 
 ```bash
-npm run build --workspace=resources/assets/v2
+npm run build --workspace=resources/assets/v3
 ```
 
 Make sure `APP_URL` in `.env` matches the URL you're accessing.
@@ -507,7 +508,7 @@ The v2 UI loads translations from `/v2/i18n/{locale}.json`. This project serves 
 
 1. **Rebuild the frontend** so the latest JS (including error handling) is used:
    ```bash
-   npm run build --workspace=resources/assets/v2
+   npm run build --workspace=resources/assets/v3
    ```
 2. **Hard-refresh the page** (Ctrl+F5) and, if using Laragon, restart Apache so the new route is in effect.
 3. **Check the browser Network tab** (F12 → Network): ensure `v2/i18n/en_US.json` (or your locale) returns **200** with JSON. If it returns 404, the route is not registered (e.g. config or route cache). Run `php artisan route:clear` and `php artisan config:clear`, then reload.
