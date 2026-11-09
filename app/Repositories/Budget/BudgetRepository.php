@@ -561,6 +561,7 @@ class BudgetRepository implements BudgetRepositoryInterface, UserGroupInterface
                 'name'          => $data['name'],
                 'order'         => $order + 1,
                 'active'        => array_key_exists('active', $data) ? $data['active'] : true,
+                'include_in_charts' => array_key_exists('include_in_charts', $data) ? $data['include_in_charts'] : true,
             ]);
         } catch (QueryException $e) {
             Log::error($e->getMessage());
@@ -658,6 +659,9 @@ class BudgetRepository implements BudgetRepositoryInterface, UserGroupInterface
         }
         if (array_key_exists('active', $data)) {
             $budget->active = $data['active'];
+        }
+        if (array_key_exists('include_in_charts', $data)) {
+            $budget->include_in_charts = $data['include_in_charts'];
         }
         if (array_key_exists('notes', $data)) {
             $this->setNoteText($budget, (string) $data['notes']);

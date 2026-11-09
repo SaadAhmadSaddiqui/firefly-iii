@@ -29,9 +29,11 @@ use FireflyIII\Enums\TransactionTypeEnum;
 use FireflyIII\Generator\Chart\Basic\GeneratorInterface;
 use FireflyIII\Helpers\Collector\GroupCollectorInterface;
 use FireflyIII\Http\Controllers\Controller;
+use FireflyIII\Models\Budget;
 use FireflyIII\Support\CacheProperties;
 use FireflyIII\Support\Http\Controllers\ResolvesJournalAmountAndCurrency;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Collection;
 
 /**
  * Class TransactionController
@@ -61,6 +63,7 @@ final class TransactionController extends Controller
         $cache->addProperty($start);
         $cache->addProperty($end);
         $cache->addProperty($this->convertToPrimary);
+        $cache->addProperty($this->chartExcludedBudgets()->pluck('id')->all());
         $cache->addProperty('chart.transactions.budgets');
         if ($cache->has()) {
             return response()->json($cache->get());
@@ -69,6 +72,7 @@ final class TransactionController extends Controller
         /** @var GroupCollectorInterface $collector */
         $collector = app(GroupCollectorInterface::class);
         $collector->setRange($start, $end);
+        $collector->excludeBudgets($this->chartExcludedBudgets()); // fork: budgets with include_in_charts = false
         $collector->withBudgetInformation();
         $collector->setTypes([TransactionTypeEnum::WITHDRAWAL->value]);
 
@@ -104,6 +108,7 @@ final class TransactionController extends Controller
         $cache->addProperty($end);
         $cache->addProperty($objectType);
         $cache->addProperty($this->convertToPrimary);
+        $cache->addProperty($this->chartExcludedBudgets()->pluck('id')->all());
         $cache->addProperty('chart.transactions.categories');
         if ($cache->has()) {
             return response()->json($cache->get());
@@ -112,6 +117,7 @@ final class TransactionController extends Controller
         /** @var GroupCollectorInterface $collector */
         $collector = app(GroupCollectorInterface::class);
         $collector->setRange($start, $end);
+        $collector->excludeBudgets($this->chartExcludedBudgets()); // fork: budgets with include_in_charts = false
         $collector->withCategoryInformation();
 
         if ('withdrawal' === $objectType) {
@@ -156,6 +162,7 @@ final class TransactionController extends Controller
         $cache->addProperty($end);
         $cache->addProperty($objectType);
         $cache->addProperty($this->convertToPrimary);
+        $cache->addProperty($this->chartExcludedBudgets()->pluck('id')->all());
         $cache->addProperty('chart.transactions.destinations');
         if ($cache->has()) {
             return response()->json($cache->get());
@@ -164,6 +171,7 @@ final class TransactionController extends Controller
         /** @var GroupCollectorInterface $collector */
         $collector = app(GroupCollectorInterface::class);
         $collector->setRange($start, $end);
+        $collector->excludeBudgets($this->chartExcludedBudgets()); // fork: budgets with include_in_charts = false
         $collector->withAccountInformation();
 
         if ('withdrawal' === $objectType) {
@@ -208,6 +216,7 @@ final class TransactionController extends Controller
         $cache->addProperty($end);
         $cache->addProperty($objectType);
         $cache->addProperty($this->convertToPrimary);
+        $cache->addProperty($this->chartExcludedBudgets()->pluck('id')->all());
         $cache->addProperty('chart.transactions.sources');
         if ($cache->has()) {
             return response()->json($cache->get());
@@ -216,6 +225,7 @@ final class TransactionController extends Controller
         /** @var GroupCollectorInterface $collector */
         $collector = app(GroupCollectorInterface::class);
         $collector->setRange($start, $end);
+        $collector->excludeBudgets($this->chartExcludedBudgets()); // fork: budgets with include_in_charts = false
         $collector->withAccountInformation();
 
         if ('withdrawal' === $objectType) {
@@ -248,5 +258,14 @@ final class TransactionController extends Controller
         $cache->store($chart);
 
         return response()->json($chart);
+    }
+
+    /**
+     * Fork: budgets the user unticked "Include in charts" on (one-offs such as the car or rent)
+     * are left out of the transaction pie charts so they don't dwarf everyday spending.
+     */
+    private function chartExcludedBudgets(): Collection
+    {
+        return Budget::where('user_id', auth()->user()->id)->where('include_in_charts', false)->get(['id']);
     }
 }

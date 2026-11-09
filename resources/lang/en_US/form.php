@@ -35,6 +35,7 @@ return [
     'enabled'                     => 'Enabled',
     'name'                        => 'Name',
     'active'                      => 'Active',
+    'include_in_charts'           => 'Include in charts',
     'amount_min'                  => 'Minimum amount',
     'amount_max'                  => 'Maximum amount',
     'match'                       => 'Matches on',

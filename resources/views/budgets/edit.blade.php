@@ -12,6 +12,7 @@
                     </div>
                     <div class="card-body">
                         {!! ExpandedForm::checkbox('active', 1) !!}
+                        {!! ExpandedForm::checkbox('include_in_charts', 1, null, ['helpText' => 'Untick for one-off budgets (car, rent, travel) so they do not dominate the transaction charts.']) !!}
                         {!! ExpandedForm::text('name', $budget->name) !!}
                     </div>
                 </div>

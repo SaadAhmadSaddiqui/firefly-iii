@@ -32,6 +32,7 @@
                     <div class="card-body">
                         {!! ExpandedForm::date('start_date') !!}
                         {!! ExpandedForm::date('target_date') !!}
+                        {!! ExpandedForm::select('budget_id', $budgets, null, ['helpText' => trans('firefly.piggy_bank_linked_budget_help'), 'label' => trans('firefly.linked_budget')]) !!}
                         {!! ExpandedForm::textarea('notes', null, ['helpText' => trans('firefly.field_supports_markdown')]) !!}
                         {!! ExpandedForm::file('attachments[]', ['multiple' => 'multiple','helpText' => trans('firefly.upload_max_file_size', ['size' => print_nice_filesize($uploadSize)])]) !!}
                         {!! ExpandedForm::objectGroup() !!}

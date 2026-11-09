@@ -236,6 +236,8 @@ final class IndexController extends Controller
                 $spent                        = $this->opsRepository->sumExpenses($limit->start_date, $limit->end_date, null, new Collection()->push($budget), $currency);
 
                 $spentAmount                  = $spent[$currency->id]['sum'] ?? '0';
+                // fork: contributions to piggy banks linked to this budget count as spending
+                $spentAmount                  = bcadd($spentAmount, $this->piggyBankAllocation($budget, $limit->start_date, $limit->end_date, $currency->id));
                 $array['budgeted'][]          = [
                     'id'                      => $limit->id,
                     'amount'                  => $amount,
@@ -267,6 +269,10 @@ final class IndexController extends Controller
             foreach ($currencies as $currency) {
                 $spentInLimits[$currency->id] = array_key_exists($currency->id, $spentInLimits) ? $spentInLimits[$currency->id] : '0';
                 $spentArr                     = $this->opsRepository->sumExpenses($start, $end, null, new Collection()->push($budget), $currency);
+                $allocation                   = $this->piggyBankAllocation($budget, $start, $end, $currency->id);
+                if (0 !== bccomp($allocation, '0')) { // fork: piggy bank contributions count as spending
+                    $spentArr[$currency->id]['sum'] = bcadd($spentArr[$currency->id]['sum'] ?? '0', $allocation);
+                }
 
                 Log::debug(sprintf('Working on currency %s, spentInLimits is %s', $currency->code, $spentInLimits[$currency->id]));
 
@@ -339,5 +345,24 @@ final class IndexController extends Controller
         }
 
         return $sums;
+    }
+
+    /**
+     * Fork: money moved into piggy banks linked to $budget (via piggy_banks.budget_id) between
+     * $start and $end, as a negative "spent" amount; taking money out reduces it again.
+     * E.g. the monthly Rent Fund share shows as spent in the Rent budget.
+     */
+    private function piggyBankAllocation(Budget $budget, Carbon $start, Carbon $end, int $currencyId): string
+    {
+        $sum = '0';
+        foreach ($budget->piggyBanks()->where('transaction_currency_id', $currencyId)->get() as $piggyBank) {
+            $moved = (string) $piggyBank->piggyBankEvents()
+                ->where('date', '>=', $start->format('Y-m-d'))
+                ->where('date', '<=', $end->format('Y-m-d'))
+                ->sum('amount');
+            $sum   = bcsub($sum, $moved);
+        }
+
+        return $sum;
     }
 }

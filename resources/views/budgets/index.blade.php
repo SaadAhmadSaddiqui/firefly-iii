@@ -388,6 +388,31 @@
                             @endforeach
                             {{--  END OF BUDGET ROW  --}}
                             </tbody>
+                            {{-- fork: totals row (sums were already calculated by the controller) --}}
+                            @if(count($sums['budgeted']) > 0 || count($sums['spent']) > 0)
+                                <tfoot>
+                                <tr class="fw-bold border-top border-2">
+                                    <td>&nbsp;</td>
+                                    <td>{{ __('firefly.sum') }}</td>
+                                    <td>
+                                        @foreach($sums['budgeted'] as $sum)
+                                            {!! format_amount_by_symbol($sum['amount'], $sum['currency_symbol'], $sum['currency_decimal_places']) !!}<br>
+                                        @endforeach
+                                    </td>
+                                    <td>
+                                        @foreach($sums['spent'] as $sum)
+                                            {!! format_amount_by_symbol($sum['amount'], $sum['currency_symbol'], $sum['currency_decimal_places']) !!}<br>
+                                        @endforeach
+                                    </td>
+                                    <td>
+                                        @foreach($sums['left'] as $sum)
+                                            {!! format_amount_by_symbol($sum['amount'], $sum['currency_symbol'], $sum['currency_decimal_places']) !!}<br>
+                                        @endforeach
+                                    </td>
+                                    <td>&nbsp;</td>
+                                </tr>
+                                </tfoot>
+                            @endif
                         </table>
                     </div>
                     <x-elements.card-footer-with-menu :route="route('budgets.create')" :linkTitle="__('firefly.createBudget')" />
