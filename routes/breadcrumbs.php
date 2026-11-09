@@ -1392,3 +1392,13 @@ Breadcrumbs::for(
         $breadcrumbs->push(trans('firefly.backup_bc'), route('backup.index'));
     }
 );
+foreach (['enbd' => 'Emirates NBD / Islamic', 'mashreq' => 'Mashreq', 'fab' => 'FAB'] as $bankKey => $bankTitle) {
+    Breadcrumbs::for(
+        'bank-import.'.$bankKey,
+        static function (Generator $breadcrumbs) use ($bankKey, $bankTitle): void {
+            $breadcrumbs->parent('home');
+            $breadcrumbs->push('Bank import');
+            $breadcrumbs->push($bankTitle, route('bank-import.'.$bankKey));
+        }
+    );
+}
