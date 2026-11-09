@@ -25,6 +25,7 @@ import Alpine from "@alpinejs/csp";
 import { getVariable } from "../../store/get-variable.js";
 import Put from "../../api/model/account/put.js";
 import Get from "../../api/model/account/get.js";
+import PiggyBankGet from "../../api/model/piggy-bank/get.js";
 import formatDate from "../../util/format-date.js";
 import formatMoney from "../../util/format-money.js";
 import i18next from "i18next";
@@ -56,6 +57,9 @@ let index = function () {
         sums: {},
         debts: {},
         differences: {},
+        // fork: money set aside in piggy banks, per asset account id, and the resulting available sums.
+        reserved: null,
+        availableSums: {},
 
         // functions
         formatMoney: formatMoney,
@@ -173,7 +177,7 @@ let index = function () {
             let start = window.store.get("start");
             let end = window.store.get("end");
             this.convertToPrimary = window.store.get("convert_to_primary");
-            new Get()
+            const accountList = new Get()
                 .list({
                     active: this.active,
                     sort: sort,
@@ -182,13 +186,15 @@ let index = function () {
                     start: start,
                     filter: JSON.parse(JSON.stringify(this.filter)),
                     end: end,
-                })
-                .then((response) => {
+                });
+            Promise.all([accountList, this.loadReserved()])
+                .then(([response]) => {
                     const locale = window.store.get("locale");
                     this.accounts = [];
                     this.sums = {};
                     this.debts = {};
                     this.differences = {};
+                    this.availableSums = {};
 
                     this.totalPages = parseInt(response.data.meta.pagination.total_pages);
                     for (let i = 0; i < response.data.data.length; i++) {
@@ -270,6 +276,9 @@ let index = function () {
                                     .t("firefly.interest_calc_" + current.attributes.interest_period)
                                     .toLowerCase(),
                             };
+                            if ("asset" === this.objectType) {
+                                this.addAvailable(account, current.attributes.current_balance_float, cc);
+                            }
                             this.accounts.push(account);
                         }
                     }
@@ -287,6 +296,38 @@ let index = function () {
                         });
                     }
                 });
+        },
+        // fork: load piggy bank reservations once, summed per account id.
+        loadReserved() {
+            if ("asset" !== this.objectType || null !== this.reserved) {
+                return Promise.resolve();
+            }
+            this.reserved = {};
+            const getter = new PiggyBankGet();
+            const loadPage = (page) =>
+                getter.list({ page: page, limit: 100 }).then((response) => {
+                    for (const piggyBank of response.data.data) {
+                        for (const row of piggyBank.attributes.accounts ?? []) {
+                            const id = parseInt(row.account_id);
+                            this.reserved[id] = (this.reserved[id] ?? 0) + parseFloat(row.current_amount ?? "0");
+                        }
+                    }
+                    if (page < parseInt(response.data.meta.pagination.total_pages)) {
+                        return loadPage(page + 1);
+                    }
+                });
+            return loadPage(1).catch(() => {
+                this.reserved = {};
+            });
+        },
+        addAvailable(account, balance, code) {
+            const reserved = this.anonymous ? 0 : Math.round((this.reserved[account.id] ?? 0) * 100) / 100;
+            const available = this.anonymous ? 0 : Math.round((balance - reserved) * 100) / 100;
+            account.reserved_float = reserved;
+            account.reserved = formatMoney(reserved, code);
+            account.available_float = available;
+            account.available = formatMoney(available, code);
+            this.availableSums[code] = Math.round(((this.availableSums[code] ?? 0) + available) * 100) / 100;
         },
         addSpaces(iban) {
             if (null === iban) {

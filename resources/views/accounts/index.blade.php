@@ -47,6 +47,9 @@
                             <template x-if="'liabilities' !== objectType">
                                 <th data-sort-column="current_balance"><span class="title">{{ trans('list.currentBalance') }}</span></th>
                             </template>
+                            <template x-if="'asset' === objectType">
+                                <th class="text-end" title="{{ trans('firefly.fork_available_balance_help') }}"><span class="title">{{ trans('firefly.fork_available_balance') }}</span></th>
+                            </template>
                             <template x-if="'liabilities' === objectType">
                                 <th data-sort-column="debt_amount">
                                     <span class="title">{{ trans('firefly.left_in_debt') }}</span>
@@ -201,6 +204,22 @@
                                         </template>
                                     </td>
                                 </template>
+                                <template x-if="'asset' === objectType">
+                                    <td class="text-end">
+                                        <template x-if="account.available_float > 0.0">
+                                            <span class="money-positive" x-text="account.available"></span>
+                                        </template>
+                                        <template x-if="0.0 === account.available_float">
+                                            <span class="money-neutral" x-text="account.available"></span>
+                                        </template>
+                                        <template x-if="account.available_float < 0.0">
+                                            <span class="money-negative" x-text="account.available"></span>
+                                        </template>
+                                        <template x-if="account.reserved_float > 0.0">
+                                            <small class="d-block text-muted"><span class="bi bi-piggy-bank"></span> <span x-text="account.reserved"></span></small>
+                                        </template>
+                                    </td>
+                                </template>
                                 <td class="d-md-table-cell d-none">
                                     <template x-if="true === account.active">
                                         <span class="bi bi-check text-success"></span>
@@ -330,6 +349,21 @@
                                                 </span>
                                             </template>
                                         </span>
+                                        </template>
+                                    </td>
+                                </template>
+                                <template x-if="'asset' === objectType">
+                                    <td class="text-end">
+                                        <template x-for="(sum, code) in availableSums">
+                                            <span>
+                                                <template x-if="sum >= 0">
+                                                    <span class="money-positive" x-text="formatMoney(sum, code)"></span>
+                                                </template>
+                                                <template x-if="sum < 0">
+                                                    <span class="money-negative" x-text="formatMoney(sum, code)"></span>
+                                                </template>
+                                                <br>
+                                            </span>
                                         </template>
                                     </td>
                                 </template>

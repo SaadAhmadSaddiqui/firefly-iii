@@ -3004,6 +3004,8 @@ return [
 
     // ---- fork additions (backup, Google Drive, budget plans, period navigation, piggy bank budget link) ----
     'fork_menu_planning'                                  => 'Planning & data',
+    'fork_available_balance'                              => 'Available',
+    'fork_available_balance_help'                         => 'Current balance minus the money set aside in piggy banks on this account.',
     // backup and restore:
     'backup_title'                                        => 'Backup & Restore',
     'backup_menu'                                         => 'Backup & Restore',
