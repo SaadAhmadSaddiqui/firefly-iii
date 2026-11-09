@@ -65,8 +65,8 @@ The plan ends with a checklist: budget limits, subscriptions, recurring transact
 | Salary | Deel AE FZE, ~AED 25,724.42 on the ~27th–28th. **It funds the next month** |
 | Other income | NST Media FZC freelance payouts (irregular, tag `business-income`) |
 | Dad | AED 5,000/month to Anees Ahmad (mandatory; sometimes + small extras) |
-| Rent | AED 14,500 quarterly to Mohanadasan Kuttath, due Jan 1 / Apr 1 / Jul 1 / Oct 1 (often paid the day before). Rent Fund piggy accrues ~4,833/month. Each October's renewal adds ~3k (Digital Sharjah fees + agent commission) |
-| Car loan | ~AED 1,260–1,280/month from Dec 1, 2026 (confirm exact amount) |
+| Rent | AED 14,500 quarterly to Mohanadasan Kuttath, due Jan 1 / Apr 1 / Jul 1 / Oct 1 (often paid the day before). Each quarter is funded by the **3 salaries before it**, one 4,833 share each (Jan 1 ← Oct 28 + Nov 27 + Dec 27). Rent Fund piggy tracks it. Each October's renewal adds ~3k (Digital Sharjah fees + agent commission) |
+| Car loan | AED 1,280/month from Dec 1, 2026, debited from Emirates NBD. Tracked as the "Car Loan" bill + budget |
 | Wife | Budgets named "Bashaair's …". Transfers from her show as "Wajiha Ahmad". Shopping cap AED 1,000/month |
 | Brother | Studies in Kazakhstan. Occasionally uses the Mashreq card or gets Paysend transfers (→ Family Usage / Family Transfer) |
 | Fixed-ish | GymNation 2 × 197 · Droplets of Mercy 279.51 · Referral commission ~300 (Mohammad Dohadwala, irregular) |
